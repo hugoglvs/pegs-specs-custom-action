@@ -21,7 +21,13 @@ async function run(): Promise<void> {
 
         // Install dependencies
         core.startGroup('Installing Asciidoctor dependencies');
-        await exec.exec('gem install asciidoctor asciidoctor-pdf asciidoctor-diagram');
+
+        // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
+        // On GitHub Actions runners (ubuntu-latest), sudo is passwordless.
+        const isLinux = process.platform === 'linux';
+        const sudoPrefix = isLinux ? 'sudo ' : '';
+
+        await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram`);
         // Ensure graphviz is installed for plantuml (often 'dot' command is needed)
         // On GitHub runners, graphviz is usually pre-installed. We might want to try-install it.
         try {
