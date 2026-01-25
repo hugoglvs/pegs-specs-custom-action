@@ -32,13 +32,15 @@ jobs:
             - name: Verify Artifacts
               run: |
                   ls -R docs/build
-                  if [ ! -f docs/build/test-book.pdf ]; then
-                    echo "PDF not generated!"
+                  # Check for Goals Book
+                  if [ ! -f docs/build/goals-book.pdf ]; then
+                    echo "Goals Book PDF not generated!"
                     exit 1
                   fi
-                  if [ ! -f docs/build/test-book.html ]; then
-                     echo "HTML not generated!"
-                     exit 1
+                  # Check for System Book
+                  if [ ! -f docs/build/system-book.pdf ]; then
+                    echo "System Book PDF not generated!"
+                    exit 1
                   fi
 
             - name: Upload Artifacts
