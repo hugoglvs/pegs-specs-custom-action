@@ -1,0 +1,4 @@
+@startuml
+User -> System: Hello
+System -> User: Hi
+@enduml

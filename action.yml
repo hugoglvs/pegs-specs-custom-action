@@ -1,0 +1,15 @@
+name: "PEGS Specs Generator"
+description: "Generates PDF/HTML documentation from a requirements CSV using PEGS architecture."
+author: "Hugo Goncalves"
+inputs:
+  requirements-path:
+    description: "Path to the requirements.csv file"
+    required: true
+    default: "requirements.csv"
+  output-dir:
+    description: "Directory to output the generated artifacts"
+    required: false
+    default: "dist"
+runs:
+  using: "node20"
+  main: "dist/index.js"

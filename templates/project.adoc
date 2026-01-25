@@ -1,0 +1,25 @@
+= Project Book
+
+// The Project book describes all the constraints and expectations not about the system itself,
+// but about how to develop and produce it.
+
+== Roles and personnel
+// Main responsibilities in the project; required project staff and their needed qualifications.
+
+== Imposed technical choices
+// Any a priori choices binding the project to specific tools, hardware, languages.
+
+== Schedule and milestones
+// List of tasks to be carried out and their scheduling.
+
+== Tasks and deliverables
+// Details of individual tasks listed above and their expected outcomes.
+
+== Required technology elements
+// External systems, hardware and software, expected to be necessary for building the system.
+
+== Risks and mitigation analysis
+// Potential obstacles to meeting the schedule, and measures for adapting the plan.
+
+== Requirements process and report
+// Description of what the requirements process will be; later, report on its steps.

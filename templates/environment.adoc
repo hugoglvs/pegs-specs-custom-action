@@ -1,0 +1,22 @@
+= Environment Book
+
+// The Environment book describes the application domain and external context,
+// physical or virtual (or a mix), in which the system will operate.
+
+== Glossary
+// Clear and precise definitions of all the vocabulary specific to the application domain.
+
+== Components
+// List of elements of the environment that may affect or be affected by the system and project.
+
+== Constraints
+// Obligations and limits imposed on the project and system by the environment.
+
+== Assumptions
+// Properties of the environment that may be assumed, with the goal of facilitating the project.
+
+== Effects
+// Elements and properties of the environment that the system will affect.
+
+== Invariants
+// Properties of the environment that the system’s operation must preserve.
