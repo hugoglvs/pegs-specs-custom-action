@@ -1,4 +1,5 @@
 id,book,chapter,description,reference to,attached files
-REQ-001,Goals Book,Context and overall objective,The system shall run on Linux.,,
-REQ-002,System Book,Components,The system shall have a 3-tier architecture.,REQ-001,"assets/diagram.puml"
-REQ-003,System Book,Functionality,The user must include a password.,,"assets/image.svg"
+P.1,Project Book,Roles and personnel,Senior developer Hugo.,,
+E.1,Environment Book,Glossary,PEGS stands for Project Environment Goals System.,,
+G.1,Goals Book,Context and overall objective,The system shall run on Linux.,,
+S.1,System Book,Components,The system shall have a 3-tier architecture.,G.1,"assets/diagram.puml"

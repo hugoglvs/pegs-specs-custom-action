@@ -11,16 +11,21 @@ export class AdocGenerator {
         this.templatesPath = templatesPath;
     }
 
-    public async generate(data: ParsedRequirements): Promise<void> {
+    public async generate(data: ParsedRequirements): Promise<Map<string, string>> {
         // Ensure output dir exists
         await fs.promises.mkdir(this.outputDir, { recursive: true });
+
+        const generatedFiles = new Map<string, string>();
 
         // Group by Book
         const books = this.groupByBook(data.requirements);
 
         for (const [bookName, requirements] of books.entries()) {
-            await this.generateBook(bookName, requirements);
+            const fileName = await this.generateBook(bookName, requirements);
+            generatedFiles.set(bookName, fileName);
         }
+
+        return generatedFiles;
     }
 
     private groupByBook(requirements: Requirement[]): Map<string, Requirement[]> {
@@ -34,7 +39,7 @@ export class AdocGenerator {
         return map;
     }
 
-    private async generateBook(bookName: string, requirements: Requirement[]): Promise<void> {
+    private async generateBook(bookName: string, requirements: Requirement[]): Promise<string> {
         const chapters = this.groupByChapter(requirements);
 
         // Derive template filename from book name (e.g., "Goals Book" -> "goals.adoc")
@@ -60,7 +65,9 @@ export class AdocGenerator {
         }
 
         const cleanName = bookName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        await fs.promises.writeFile(path.join(this.outputDir, `${cleanName}.adoc`), content);
+        const fileName = `${cleanName}.adoc`;
+        await fs.promises.writeFile(path.join(this.outputDir, fileName), content);
+        return fileName;
     }
 
     private injectRequirements(templateContent: string, chapters: Map<string, Requirement[]>): string {

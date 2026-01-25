@@ -44,11 +44,14 @@ class AdocGenerator {
     async generate(data) {
         // Ensure output dir exists
         await fs.promises.mkdir(this.outputDir, { recursive: true });
+        const generatedFiles = new Map();
         // Group by Book
         const books = this.groupByBook(data.requirements);
         for (const [bookName, requirements] of books.entries()) {
-            await this.generateBook(bookName, requirements);
+            const fileName = await this.generateBook(bookName, requirements);
+            generatedFiles.set(bookName, fileName);
         }
+        return generatedFiles;
     }
     groupByBook(requirements) {
         const map = new Map();
@@ -83,7 +86,9 @@ class AdocGenerator {
             }
         }
         const cleanName = bookName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        await fs.promises.writeFile(path.join(this.outputDir, `${cleanName}.adoc`), content);
+        const fileName = `${cleanName}.adoc`;
+        await fs.promises.writeFile(path.join(this.outputDir, fileName), content);
+        return fileName;
     }
     injectRequirements(templateContent, chapters) {
         // Split by lines to find headers

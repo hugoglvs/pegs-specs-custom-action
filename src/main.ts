@@ -20,7 +20,7 @@ async function run(): Promise<void> {
         core.info(`Using templates from ${templatesPath}...`);
         core.info(`Generating AsciiDoc files in ${outputDir}...`);
         const generator = new AdocGenerator(outputDir, templatesPath);
-        await generator.generate(data);
+        const generatedFilesMap = await generator.generate(data);
 
         // Install dependencies
         core.startGroup('Installing Asciidoctor dependencies');
@@ -57,19 +57,147 @@ async function run(): Promise<void> {
         // Build PDF and HTML
         core.startGroup('Building Artifacts');
 
-        const generatedFiles = Array.from(data.books).map(book => {
-            const cleanName = book.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-            return path.join(outputDir, `${cleanName}.adoc`);
-        });
+        // 1. Generate Master PDF
+        // Order: Project -> Environment -> Goals -> System
+        // We try to find the files for these books in the generated map
+        // Keys in generatedFilesMap are the book names from CSV (e.g. "Goals Book")
+        const bookOrder = ['Project', 'Environment', 'Goals', 'System'];
+        // Helper to find the file for a book type (matches if book name starts with type)
+        const findFile = (type: string) => {
+            for (const [bookName, fileName] of generatedFilesMap.entries()) {
+                if (bookName.toLowerCase().startsWith(type.toLowerCase())) {
+                    return fileName;
+                }
+            }
+            return null;
+        };
 
-        for (const file of generatedFiles) {
-            core.info(`Compiling ${file} to PDF...`);
-            // Use -r asciidoctor-diagram to support plantuml
-            await exec.exec(`asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read ${file}`);
+        const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
+        let masterContent = '= Project Specifications\n:toc: left\n:toclevels: 2\n\n';
 
-            core.info(`Compiling ${file} to HTML...`);
-            await exec.exec(`asciidoctor -r asciidoctor-diagram -a allow-uri-read ${file}`);
+        // Track valid files for HTML generation later
+        const validBooks: { type: string, file: string, title: string }[] = [];
+
+        for (const type of bookOrder) {
+            const fileName = findFile(type);
+            if (fileName) {
+                // For PDF, we include them
+                // We typically need to adjust level offset so they become chapters of the master doc
+                masterContent += `include::${fileName}[leveloffset=+1]\n\n`;
+                validBooks.push({ type, file: fileName, title: type });
+            }
         }
+
+        // Write master adoc
+        await fs.promises.writeFile(masterAdocPath, masterContent);
+
+        core.info(`Compiling Master PDF: ${masterAdocPath}...`);
+        await exec.exec(`asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read ${masterAdocPath}`);
+
+        // 2. Generate Tabbed HTML
+        // First, generate partial HTMLs for each book (body only)
+        for (const book of validBooks) {
+            const filePath = path.join(outputDir, book.file);
+            // -s for no header/footer, -o to output specific html file
+            const htmlOut = filePath.replace('.adoc', '.html');
+            await exec.exec(`asciidoctor -r asciidoctor-diagram -a allow-uri-read -s -o ${htmlOut} ${filePath}`);
+        }
+
+        // Read partials and inject into index.html
+        let tabsHtml = '<div class="tab">\n';
+        let contentHtml = '';
+
+        for (let i = 0; i < validBooks.length; i++) {
+            const book = validBooks[i];
+            const isActive = i === 0 ? 'active' : '';
+            const displayStyle = i === 0 ? 'block' : 'none';
+
+            tabsHtml += `<button class="tablinks ${isActive}" onclick="openBook(event, '${book.type}')">${book.title}</button>\n`;
+
+            const partialPath = path.join(outputDir, book.file.replace('.adoc', '.html'));
+            const partialContent = await fs.promises.readFile(partialPath, 'utf-8');
+
+            contentHtml += `<div id="${book.type}" class="tabcontent" style="display:${displayStyle}">
+                ${partialContent}
+            </div>\n`;
+        }
+        tabsHtml += '</div>\n';
+
+        const indexHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {font-family: Arial;}
+
+/* Style the tab */
+.tab {
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background-color: #f1f1f1;
+}
+
+/* Style the buttons inside the tab */
+.tab button {
+  background-color: inherit;
+  float: left;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  transition: 0.3s;
+  font-size: 17px;
+}
+
+/* Change background color of buttons on hover */
+.tab button:hover {
+  background-color: #ddd;
+}
+
+/* Create an active/current tablink class */
+.tab button.active {
+  background-color: #ccc;
+}
+
+/* Style the tab content */
+.tabcontent {
+  display: none;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-top: none;
+}
+</style>
+</head>
+<body>
+
+<h2>Project Specifications</h2>
+
+${tabsHtml}
+
+${contentHtml}
+
+<script>
+function openBook(evt, bookName) {
+  var i, tabcontent, tablinks;
+  tabcontent = document.getElementsByClassName("tabcontent");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+  tablinks = document.getElementsByClassName("tablinks");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
+  }
+  document.getElementById(bookName).style.display = "block";
+  evt.currentTarget.className += " active";
+}
+</script>
+   
+</body>
+</html> 
+`;
+        await fs.promises.writeFile(path.join(outputDir, 'index.html'), indexHtml);
+        core.info('Generated index.html with tabs.');
 
         core.endGroup();
         core.info('Done!');
