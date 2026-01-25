@@ -1,0 +1,48 @@
+name: Test Action
+
+on: [push, workflow_dispatch]
+
+jobs:
+    test-generation:
+        runs-on: ubuntu-latest
+        name: Test PDF Generation
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Create Dummy Assets
+              run: |
+                  mkdir -p Assets
+                  echo '@startuml\nUser->System:Test\n@enduml' > Assets/diagram.puml
+                  # Create a tiny red dot SVG
+                  echo '<svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="red"/></svg>' > Assets/image.svg
+
+            - name: Create Test Requirements
+              run: |
+                  echo "id,book,chapter,description,reference to,attached files" > requirements.csv
+                  echo "REQ-1,Test Book,Chap 1,Testing PDF gen.,,Assets/diagram.puml" >> requirements.csv
+                  echo "REQ-2,Test Book,Chap 1,Testing Image.,,Assets/image.svg" >> requirements.csv
+
+            - name: Run PEGS Specs Action
+              uses: ./
+              with:
+                  requirements-path: "requirements.csv"
+                  output-dir: "docs/build"
+
+            - name: Verify Artifacts
+              run: |
+                  ls -R docs/build
+                  if [ ! -f docs/build/test-book.pdf ]; then
+                    echo "PDF not generated!"
+                    exit 1
+                  fi
+                  if [ ! -f docs/build/test-book.html ]; then
+                     echo "HTML not generated!"
+                     exit 1
+                  fi
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: generated-specs
+                  path: docs/build
