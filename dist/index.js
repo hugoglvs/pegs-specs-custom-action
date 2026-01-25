@@ -25818,7 +25818,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
+const io = __importStar(__nccwpck_require__(4994));
 const path = __importStar(__nccwpck_require__(6928));
+const fs = __importStar(__nccwpck_require__(9896));
 const parser_1 = __nccwpck_require__(7196);
 const generator_1 = __nccwpck_require__(4950);
 async function run() {
@@ -25854,6 +25856,13 @@ async function run() {
             }
         }
         core.endGroup();
+        // Copy Assets directory if it exists, so relative paths in adoc work
+        const assetsSource = 'Assets'; // Convention: Assets folder at root
+        const assetsDest = path.join(outputDir, 'Assets');
+        if (fs.existsSync(assetsSource)) {
+            core.info(`Copying ${assetsSource} to ${assetsDest}...`);
+            await io.cp(assetsSource, assetsDest, { recursive: true, force: true });
+        }
         // Build PDF and HTML
         core.startGroup('Building Artifacts');
         const generatedFiles = Array.from(data.books).map(book => {

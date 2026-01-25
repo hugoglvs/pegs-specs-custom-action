@@ -2,6 +2,7 @@ import * as core from '@actions/core';
 import * as exec from '@actions/exec';
 import * as io from '@actions/io';
 import * as path from 'path';
+import * as fs from 'fs';
 import { parseRequirements } from './parser';
 import { AdocGenerator } from './generator';
 
@@ -42,6 +43,14 @@ async function run(): Promise<void> {
             }
         }
         core.endGroup();
+
+        // Copy Assets directory if it exists, so relative paths in adoc work
+        const assetsSource = 'Assets'; // Convention: Assets folder at root
+        const assetsDest = path.join(outputDir, 'Assets');
+        if (fs.existsSync(assetsSource)) {
+            core.info(`Copying ${assetsSource} to ${assetsDest}...`);
+            await io.cp(assetsSource, assetsDest, { recursive: true, force: true });
+        }
 
         // Build PDF and HTML
         core.startGroup('Building Artifacts');

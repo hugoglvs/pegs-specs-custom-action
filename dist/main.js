@@ -35,7 +35,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const core = __importStar(require("@actions/core"));
 const exec = __importStar(require("@actions/exec"));
+const io = __importStar(require("@actions/io"));
 const path = __importStar(require("path"));
+const fs = __importStar(require("fs"));
 const parser_1 = require("./parser");
 const generator_1 = require("./generator");
 async function run() {
@@ -71,6 +73,13 @@ async function run() {
             }
         }
         core.endGroup();
+        // Copy Assets directory if it exists, so relative paths in adoc work
+        const assetsSource = 'Assets'; // Convention: Assets folder at root
+        const assetsDest = path.join(outputDir, 'Assets');
+        if (fs.existsSync(assetsSource)) {
+            core.info(`Copying ${assetsSource} to ${assetsDest}...`);
+            await io.cp(assetsSource, assetsDest, { recursive: true, force: true });
+        }
         // Build PDF and HTML
         core.startGroup('Building Artifacts');
         const generatedFiles = Array.from(data.books).map(book => {
