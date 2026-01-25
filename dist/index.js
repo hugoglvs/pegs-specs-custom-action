@@ -25889,10 +25889,10 @@ async function run() {
             core.info('Graphviz not found. Attempting install...');
             if (process.platform === 'linux') {
                 await exec.exec('sudo apt-get update');
-                await exec.exec('sudo apt-get install -y graphviz');
+                await exec.exec('sudo apt-get install -y graphviz plantuml');
             }
             else if (process.platform === 'darwin') {
-                await exec.exec('brew install graphviz');
+                await exec.exec('brew install graphviz plantuml');
             }
         }
         core.endGroup();
