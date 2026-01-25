@@ -1,4 +1,4 @@
 id,book,chapter,description,reference to,attached files
 REQ-001,System Book,Introduction,The system shall run on Linux.,,
-REQ-002,System Book,Architecture,The system shall have a 3-tier architecture.,REQ-001,"Assets/diagram.puml"
-REQ-003,User Book,Login,The user must include a password.,,"Assets/image.svg"
+REQ-002,System Book,Architecture,The system shall have a 3-tier architecture.,REQ-001,"assets/diagram.puml"
+REQ-003,User Book,Login,The user must include a password.,,"assets/image.svg"
