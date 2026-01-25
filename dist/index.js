@@ -25879,20 +25879,20 @@ async function run() {
         // On GitHub Actions runners (ubuntu-latest), sudo is passwordless.
         const isLinux = process.platform === 'linux';
         const sudoPrefix = isLinux ? 'sudo ' : '';
-        await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram`);
-        // Ensure graphviz is installed for plantuml (often 'dot' command is needed)
-        // On GitHub runners, graphviz is usually pre-installed. We might want to try-install it.
+        await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram asciidoctor-diagram-plantuml`);
+        // Ensure graphviz and java (JRE) are installed for plantuml
         try {
             await exec.exec('dot -V');
+            await exec.exec('java -version');
         }
         catch {
-            core.info('Graphviz not found. Attempting install...');
+            core.info('Graphviz or Java not found. Attempting install...');
             if (process.platform === 'linux') {
                 await exec.exec('sudo apt-get update');
-                await exec.exec('sudo apt-get install -y graphviz plantuml');
+                await exec.exec('sudo apt-get install -y graphviz plantuml default-jre');
             }
             else if (process.platform === 'darwin') {
-                await exec.exec('brew install graphviz plantuml');
+                await exec.exec('brew install graphviz plantuml openjdk');
             }
         }
         core.endGroup();
