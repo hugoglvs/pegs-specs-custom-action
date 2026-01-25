@@ -25686,8 +25686,9 @@ exports.AdocGenerator = void 0;
 const fs = __importStar(__nccwpck_require__(9896));
 const path = __importStar(__nccwpck_require__(6928));
 class AdocGenerator {
-    constructor(outputDir) {
+    constructor(outputDir, templatesPath) {
         this.outputDir = outputDir;
+        this.templatesPath = templatesPath;
     }
     async generate(data) {
         // Ensure output dir exists
@@ -25710,28 +25711,70 @@ class AdocGenerator {
     }
     async generateBook(bookName, requirements) {
         const chapters = this.groupByChapter(requirements);
-        let content = `= ${bookName}\n:toc:\n\n`;
-        for (const [chapterName, reqs] of chapters.entries()) {
-            content += `== ${chapterName}\n\n`;
-            for (const req of reqs) {
-                content += `=== ${req.id}\n`;
-                content += `*Description*: ${req.description}\n\n`;
-                if (req.referenceTo) {
-                    // Assuming referenceTo contains comma separated IDs
-                    const refs = req.referenceTo.split(',').map(r => r.trim());
-                    const links = refs.map(r => `<<${r}>>`).join(', ');
-                    content += `*References*: ${links}\n\n`;
-                }
-                if (req.attachedFiles) {
-                    content += this.handleAttachedFiles(req.attachedFiles, req.id);
-                }
-                // Add an anchor for cross-referencing
-                content += `[#${req.id}]\n`;
-                content += `---\n\n`;
+        // Derive template filename from book name (e.g., "Goals Book" -> "goals.adoc")
+        // Assumes typical PEGS naming: "Something Book" or just "Something". 
+        // We'll take the first word or the whole thing if it's single word, lowercased.
+        // Actually, let's try to be smart: "Goals Book" -> "goals.adoc". "System" -> "system.adoc"
+        const templateName = bookName.toLowerCase().split(' ')[0] + '.adoc';
+        const templatePath = path.join(this.templatesPath, templateName);
+        let content = '';
+        if (fs.existsSync(templatePath)) {
+            console.log(`Using template: ${templatePath}`);
+            const templateContent = await fs.promises.readFile(templatePath, 'utf-8');
+            content = this.injectRequirements(templateContent, chapters);
+        }
+        else {
+            console.warn(`Template not found: ${templatePath}. Falling back to default generation.`);
+            content = `= ${bookName}\n:toc:\n\n`;
+            for (const [chapterName, reqs] of chapters.entries()) {
+                content += `== ${chapterName}\n\n`;
+                content += this.generateChapterContent(reqs);
             }
         }
         const cleanName = bookName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         await fs.promises.writeFile(path.join(this.outputDir, `${cleanName}.adoc`), content);
+    }
+    injectRequirements(templateContent, chapters) {
+        // Split by lines to find headers
+        const lines = templateContent.split('\n');
+        let newContent = '';
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            newContent += line + '\n';
+            // Check if this line is a level 2 header matching a chapter
+            // e.g. "== Components"
+            const match = line.match(/^==\s+(.+)$/);
+            if (match) {
+                const chapterTitle = match[1].trim();
+                // Check if we have requirements for this chapter
+                // We purposefully check loosely or exact match? Let's try exact match first.
+                if (chapters.has(chapterTitle)) {
+                    const reqs = chapters.get(chapterTitle);
+                    if (reqs) {
+                        newContent += '\n' + this.generateChapterContent(reqs) + '\n';
+                    }
+                }
+            }
+        }
+        return newContent;
+    }
+    generateChapterContent(reqs) {
+        let content = '';
+        for (const req of reqs) {
+            content += `=== ${req.id}\n`;
+            content += `*Description*: ${req.description}\n\n`;
+            if (req.referenceTo) {
+                const refs = req.referenceTo.split(',').map(r => r.trim());
+                const links = refs.map(r => `<<${r}>>`).join(', ');
+                content += `*References*: ${links}\n\n`;
+            }
+            if (req.attachedFiles) {
+                content += this.handleAttachedFiles(req.attachedFiles, req.id);
+            }
+            content += `[#${req.id}]\n`;
+            content += `---\n\n`;
+        }
+        return content;
     }
     groupByChapter(requirements) {
         const map = new Map();
@@ -25745,26 +25788,16 @@ class AdocGenerator {
     }
     handleAttachedFiles(attachedFiles, reqId) {
         let content = '';
-        const items = attachedFiles.split(';').map(s => s.trim()); // Support multiple with semicolon
+        const items = attachedFiles.split(';').map(s => s.trim());
         for (const item of items) {
             if (!item)
                 continue;
-            // Check for PlantUML file extension
             if (item.match(/\.puml$/i)) {
-                // Use the plantuml macro for external files. 
-                // Note: The path must be relative to the adoc file or absolute, 
-                // but typically in Asciidoctor standard practice, relative to the document is best.
-                // We act as if 'item' is the correct relative path (e.g., "assets/diagram.puml").
-                // We include an ID in the target filename to avoid caching collisions if needed, 
-                // though strictly 'target' in the macro is usually the output image name.
-                // Format: plantuml::input-file[format=svg, target=output-filename]
                 content += `\nplantuml::${item}[format=svg, target=diagram-${reqId}]\n\n`;
             }
-            // Check for Image file extensions
             else if (item.match(/\.(png|jpg|jpeg|svg|gif)$/i)) {
                 content += `\nimage::${item}[${reqId} Image]\n\n`;
             }
-            // Fallback: If it's a URI but not an image/puml, just link it
             else {
                 content += `\nlink:${item}[Attached File]\n\n`;
             }
@@ -25827,11 +25860,13 @@ async function run() {
     try {
         const requirementsPath = core.getInput('requirements-path');
         const outputDir = core.getInput('output-dir');
+        const templatesPath = core.getInput('templates-path');
         core.info(`Reading requirements from ${requirementsPath}`);
         const data = await (0, parser_1.parseRequirements)(requirementsPath);
         core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
+        core.info(`Using templates from ${templatesPath}...`);
         core.info(`Generating AsciiDoc files in ${outputDir}...`);
-        const generator = new generator_1.AdocGenerator(outputDir);
+        const generator = new generator_1.AdocGenerator(outputDir, templatesPath);
         await generator.generate(data);
         // Install dependencies
         core.startGroup('Installing Asciidoctor dependencies');

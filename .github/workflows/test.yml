@@ -20,8 +20,8 @@ jobs:
             - name: Create Test Requirements
               run: |
                   echo "id,book,chapter,description,reference to,attached files" > requirements.csv
-                  echo "REQ-1,Test Book,Chap 1,Testing PDF gen.,,assets/diagram.puml" >> requirements.csv
-                  echo "REQ-2,Test Book,Chap 1,Testing Image.,,assets/image.svg" >> requirements.csv
+                  echo "REQ-1,Goals Book,Context and overall objective,Testing PDF gen.,,assets/diagram.puml" >> requirements.csv
+                  echo "REQ-2,System Book,Components,Testing Image.,,assets/image.svg" >> requirements.csv
 
             - name: Run PEGS Specs Action
               uses: ./

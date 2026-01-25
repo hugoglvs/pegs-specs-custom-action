@@ -44,11 +44,13 @@ async function run() {
     try {
         const requirementsPath = core.getInput('requirements-path');
         const outputDir = core.getInput('output-dir');
+        const templatesPath = core.getInput('templates-path');
         core.info(`Reading requirements from ${requirementsPath}`);
         const data = await (0, parser_1.parseRequirements)(requirementsPath);
         core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
+        core.info(`Using templates from ${templatesPath}...`);
         core.info(`Generating AsciiDoc files in ${outputDir}...`);
-        const generator = new generator_1.AdocGenerator(outputDir);
+        const generator = new generator_1.AdocGenerator(outputDir, templatesPath);
         await generator.generate(data);
         // Install dependencies
         core.startGroup('Installing Asciidoctor dependencies');

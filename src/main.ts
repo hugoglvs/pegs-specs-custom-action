@@ -10,14 +10,16 @@ async function run(): Promise<void> {
     try {
         const requirementsPath = core.getInput('requirements-path');
         const outputDir = core.getInput('output-dir');
+        const templatesPath = core.getInput('templates-path');
 
         core.info(`Reading requirements from ${requirementsPath}`);
         const data = await parseRequirements(requirementsPath);
 
         core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
 
+        core.info(`Using templates from ${templatesPath}...`);
         core.info(`Generating AsciiDoc files in ${outputDir}...`);
-        const generator = new AdocGenerator(outputDir);
+        const generator = new AdocGenerator(outputDir, templatesPath);
         await generator.generate(data);
 
         // Install dependencies

@@ -10,6 +10,10 @@ inputs:
     description: "Directory to output the generated artifacts"
     required: false
     default: "dist"
+  templates-path:
+    description: "Path to the directory containing .adoc templates"
+    required: false
+    default: "templates"
 runs:
   using: "node20"
   main: "dist/index.js"
