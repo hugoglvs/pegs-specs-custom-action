@@ -12,16 +12,16 @@ jobs:
 
             - name: Create Dummy Assets
               run: |
-                  mkdir -p Assets
-                  echo '@startuml\nUser->System:Test\n@enduml' > Assets/diagram.puml
+                  mkdir -p assets
+                  echo '@startuml\nUser->System:Test\n@enduml' > assets/diagram.puml
                   # Create a tiny red dot SVG
-                  echo '<svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="red"/></svg>' > Assets/image.svg
+                  echo '<svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="red"/></svg>' > assets/image.svg
 
             - name: Create Test Requirements
               run: |
                   echo "id,book,chapter,description,reference to,attached files" > requirements.csv
-                  echo "REQ-1,Test Book,Chap 1,Testing PDF gen.,,Assets/diagram.puml" >> requirements.csv
-                  echo "REQ-2,Test Book,Chap 1,Testing Image.,,Assets/image.svg" >> requirements.csv
+                  echo "REQ-1,Test Book,Chap 1,Testing PDF gen.,,assets/diagram.puml" >> requirements.csv
+                  echo "REQ-2,Test Book,Chap 1,Testing Image.,,assets/image.svg" >> requirements.csv
 
             - name: Run PEGS Specs Action
               uses: ./

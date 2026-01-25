@@ -105,7 +105,7 @@ class AdocGenerator {
                 // Use the plantuml macro for external files. 
                 // Note: The path must be relative to the adoc file or absolute, 
                 // but typically in Asciidoctor standard practice, relative to the document is best.
-                // We act as if 'item' is the correct relative path (e.g., "Assets/diagram.puml").
+                // We act as if 'item' is the correct relative path (e.g., "assets/diagram.puml").
                 // We include an ID in the target filename to avoid caching collisions if needed, 
                 // though strictly 'target' in the macro is usually the output image name.
                 // Format: plantuml::input-file[format=svg, target=output-filename]

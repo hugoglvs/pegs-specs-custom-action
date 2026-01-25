@@ -44,9 +44,9 @@ async function run(): Promise<void> {
         }
         core.endGroup();
 
-        // Copy Assets directory if it exists, so relative paths in adoc work
-        const assetsSource = 'Assets'; // Convention: Assets folder at root
-        const assetsDest = path.join(outputDir, 'Assets');
+        // Copy assets directory if it exists, so relative paths in adoc work
+        const assetsSource = 'assets'; // Convention: assets folder at root
+        const assetsDest = path.join(outputDir, 'assets');
         if (fs.existsSync(assetsSource)) {
             core.info(`Copying ${assetsSource} to ${assetsDest}...`);
             await io.cp(assetsSource, assetsDest, { recursive: true, force: true });

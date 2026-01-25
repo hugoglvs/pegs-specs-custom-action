@@ -25754,7 +25754,7 @@ class AdocGenerator {
                 // Use the plantuml macro for external files. 
                 // Note: The path must be relative to the adoc file or absolute, 
                 // but typically in Asciidoctor standard practice, relative to the document is best.
-                // We act as if 'item' is the correct relative path (e.g., "Assets/diagram.puml").
+                // We act as if 'item' is the correct relative path (e.g., "assets/diagram.puml").
                 // We include an ID in the target filename to avoid caching collisions if needed, 
                 // though strictly 'target' in the macro is usually the output image name.
                 // Format: plantuml::input-file[format=svg, target=output-filename]
@@ -25856,9 +25856,9 @@ async function run() {
             }
         }
         core.endGroup();
-        // Copy Assets directory if it exists, so relative paths in adoc work
-        const assetsSource = 'Assets'; // Convention: Assets folder at root
-        const assetsDest = path.join(outputDir, 'Assets');
+        // Copy assets directory if it exists, so relative paths in adoc work
+        const assetsSource = 'assets'; // Convention: assets folder at root
+        const assetsDest = path.join(outputDir, 'assets');
         if (fs.existsSync(assetsSource)) {
             core.info(`Copying ${assetsSource} to ${assetsDest}...`);
             await io.cp(assetsSource, assetsDest, { recursive: true, force: true });
