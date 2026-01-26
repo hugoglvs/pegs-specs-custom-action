@@ -58,34 +58,51 @@ async function run(): Promise<void> {
     core.startGroup('Building Artifacts');
 
     // 1. Generate Master PDF
-    // Order: Project -> Environment -> Goals -> System
-    // We try to find the files for these books in the generated map
-    // Keys in generatedFilesMap are the book names from CSV (e.g. "Goals Book")
-    const bookOrder = ['Project', 'Environment', 'Goals', 'System'];
-    // Helper to find the file for a book type (matches if book name starts with type)
-    const findFile = (type: string) => {
-      for (const [bookName, fileName] of generatedFilesMap.entries()) {
-        if (bookName.toLowerCase().startsWith(type.toLowerCase())) {
-          return fileName;
-        }
-      }
-      return null;
+    // Preferred Order: Project -> Environment -> Goals -> System, then any others
+    const preferredOrder = ['Project', 'Environment', 'Goals', 'System'];
+
+    // Helper to find the file for a book type or name
+    const findFileForBook = (bookNameFromData: string) => {
+      return generatedFilesMap.get(bookNameFromData);
     };
 
     const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
     let masterContent = '= Project Specifications\n:toc: left\n:toclevels: 2\n\n';
 
-    // Track valid files for HTML generation later
-    const validBooks: { type: string, file: string, title: string }[] = [];
+    // List of books to include in the order they will appear
+    const finalBookSequence: { type: string, file: string, title: string }[] = [];
+    const processedBooks = new Set<string>();
 
-    for (const type of bookOrder) {
-      const fileName = findFile(type);
-      if (fileName) {
-        // For PDF, we include them
-        // We typically need to adjust level offset so they become chapters of the master doc
-        masterContent += `include::${fileName}[leveloffset=+1]\n\n`;
-        validBooks.push({ type, file: fileName, title: type });
+    // First, process preferred books if they exist in the data
+    for (const type of preferredOrder) {
+      for (const bookName of data.books) {
+        if (bookName.toLowerCase().startsWith(type.toLowerCase()) && !processedBooks.has(bookName)) {
+          const fileName = findFileForBook(bookName);
+          if (fileName) {
+            finalBookSequence.push({ type: type, file: fileName, title: bookName });
+            processedBooks.add(bookName);
+          }
+        }
       }
+    }
+
+    // Then, add any remaining books that weren't in the preferred list
+    for (const bookName of data.books) {
+      if (!processedBooks.has(bookName)) {
+        const fileName = findFileForBook(bookName);
+        if (fileName) {
+          finalBookSequence.push({ type: bookName, file: fileName, title: bookName });
+          processedBooks.add(bookName);
+        }
+      }
+    }
+
+    core.info(`Ordered books for generation: ${finalBookSequence.map(b => b.title).join(', ')}`);
+
+    for (const book of finalBookSequence) {
+      // For PDF, we include them
+      // We typically need to adjust level offset so they become chapters of the master doc
+      masterContent += `include::${book.file}[leveloffset=+1]\n\n`;
     }
 
     // Write master adoc
@@ -96,7 +113,7 @@ async function run(): Promise<void> {
 
     // 2. Generate Tabbed HTML
     // First, generate partial HTMLs for each book (body only)
-    for (const book of validBooks) {
+    for (const book of finalBookSequence) {
       const filePath = path.join(outputDir, book.file);
       // -s for no header/footer, -o to output specific html file
       const htmlOut = filePath.replace('.adoc', '.html');
@@ -107,12 +124,12 @@ async function run(): Promise<void> {
     let tabsHtml = '<div class="tab">\n';
     let contentHtml = '';
 
-    for (let i = 0; i < validBooks.length; i++) {
-      const book = validBooks[i];
+    for (let i = 0; i < finalBookSequence.length; i++) {
+      const book = finalBookSequence[i];
       const isActive = i === 0 ? 'active' : '';
       const displayStyle = i === 0 ? 'block' : 'none';
 
-      tabsHtml += `<button class="tablinks ${isActive}" onclick="openBook(event, '${book.type}')">${book.title}</button>\n`;
+      tabsHtml += `<button class="tablinks ${isActive}" onclick="openBook(event, '${book.type.replace(/\s+/g, '-')}')">${book.title}</button>\n`;
 
       const partialPath = path.join(outputDir, book.file.replace('.adoc', '.html'));
       const partialContent = await fs.promises.readFile(partialPath, 'utf-8');

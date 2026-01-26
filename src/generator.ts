@@ -75,6 +75,12 @@ export class AdocGenerator {
         const lines = templateContent.split('\n');
         let newContent = '';
 
+        // Pre-calculate normalized chapter keys for better matching
+        const normalizedChapters = new Map<string, Requirement[]>();
+        for (const [title, reqs] of chapters.entries()) {
+            normalizedChapters.set(title.toLowerCase().trim(), reqs);
+        }
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             newContent += line + '\n';
@@ -84,11 +90,13 @@ export class AdocGenerator {
             const match = line.match(/^==\s+(.+)$/);
             if (match) {
                 const chapterTitle = match[1].trim();
+                const normalizedTitle = chapterTitle.toLowerCase().trim();
+
                 // Check if we have requirements for this chapter
-                // We purposefully check loosely or exact match? Let's try exact match first.
-                if (chapters.has(chapterTitle)) {
-                    const reqs = chapters.get(chapterTitle);
+                if (normalizedChapters.has(normalizedTitle)) {
+                    const reqs = normalizedChapters.get(normalizedTitle);
                     if (reqs) {
+                        console.log(`Injecting ${reqs.length} requirements into chapter: ${chapterTitle}`);
                         newContent += '\n' + this.generateChapterContent(reqs) + '\n';
                     }
                 }
