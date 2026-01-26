@@ -22,7 +22,9 @@ export class AdocGenerator {
 
         for (const [bookName, requirements] of books.entries()) {
             const fileName = await this.generateBook(bookName, requirements);
-            generatedFiles.set(bookName, fileName);
+            if (fileName) {
+                generatedFiles.set(bookName, fileName);
+            }
         }
 
         return generatedFiles;
@@ -39,22 +41,22 @@ export class AdocGenerator {
         return map;
     }
 
-    private async generateBook(bookName: string, requirements: Requirement[]): Promise<string> {
+    private async generateBook(bookName: string, requirements: Requirement[]): Promise<string | null> {
         const chapters = this.groupByChapter(requirements);
 
         // Derive template filename from book name (e.g., "Goals Book" -> "goals.adoc")
-        // Assumes typical PEGS naming: "Something Book" or just "Something". 
-        // We'll take the first word or the whole thing if it's single word, lowercased.
-        // Actually, let's try to be smart: "Goals Book" -> "goals.adoc". "System" -> "system.adoc"
         const templateName = bookName.toLowerCase().split(' ')[0] + '.adoc';
         const templatePath = path.join(this.templatesPath, templateName);
 
         let content = '';
+        let hasRequirementsInjected = false;
 
         if (fs.existsSync(templatePath)) {
             console.log(`Using template: ${templatePath}`);
             const templateContent = await fs.promises.readFile(templatePath, 'utf-8');
-            content = this.injectRequirements(templateContent, chapters);
+            const result = this.injectRequirements(templateContent, chapters);
+            content = result.content;
+            hasRequirementsInjected = result.injected;
         } else {
             console.warn(`Template not found: ${templatePath}. Falling back to default generation.`);
             content = `= ${bookName}\n:toc:\n\n`;
@@ -62,6 +64,12 @@ export class AdocGenerator {
                 content += `== ${chapterName}\n\n`;
                 content += this.generateChapterContent(reqs);
             }
+            hasRequirementsInjected = requirements.length > 0;
+        }
+
+        if (!hasRequirementsInjected) {
+            console.log(`Skipping book generation for '${bookName}' as it has no valid chapters with requirements.`);
+            return null;
         }
 
         const cleanName = bookName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -70,39 +78,55 @@ export class AdocGenerator {
         return fileName;
     }
 
-    private injectRequirements(templateContent: string, chapters: Map<string, Requirement[]>): string {
-        // Split by lines to find headers
-        const lines = templateContent.split('\n');
-        let newContent = '';
-
+    private injectRequirements(templateContent: string, chapters: Map<string, Requirement[]>): { content: string, injected: boolean } {
         // Pre-calculate normalized chapter keys for better matching
         const normalizedChapters = new Map<string, Requirement[]>();
         for (const [title, reqs] of chapters.entries()) {
             normalizedChapters.set(title.toLowerCase().trim(), reqs);
         }
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            newContent += line + '\n';
+        // Split by level 2 headers, but keep the headers in the result
+        // The lookahead regex (?=== ) ensures we split BEFORE each header
+        const sections = templateContent.split(/(?=== )/);
+        let newContent = '';
+        let injected = false;
 
-            // Check if this line is a level 2 header matching a chapter
-            // e.g. "== Components"
-            const match = line.match(/^==\s+(.+)$/);
+        for (const section of sections) {
+            // First section is usually the book title and intro, we keep it
+            if (!section.startsWith('== ')) {
+                newContent += section;
+                continue;
+            }
+
+            // Extract the header title from the first line of this section
+            const lines = section.split('\n');
+            const headerLine = lines[0];
+            const match = headerLine.match(/^==\s+(.+)$/);
+
             if (match) {
                 const chapterTitle = match[1].trim();
                 const normalizedTitle = chapterTitle.toLowerCase().trim();
 
-                // Check if we have requirements for this chapter
                 if (normalizedChapters.has(normalizedTitle)) {
                     const reqs = normalizedChapters.get(normalizedTitle);
-                    if (reqs) {
+                    if (reqs && reqs.length > 0) {
                         console.log(`Injecting ${reqs.length} requirements into chapter: ${chapterTitle}`);
+                        // Add the whole section (includes header and its own text)
+                        newContent += section;
+                        // Ensure a clean separation before adding requirements if not already there
+                        if (!newContent.endsWith('\n')) newContent += '\n';
                         newContent += '\n' + this.generateChapterContent(reqs) + '\n';
+                        injected = true;
                     }
+                } else {
+                    console.log(`Skipping empty template chapter: ${chapterTitle}`);
                 }
+            } else {
+                // Should not happen with current regex, but safety first
+                newContent += section;
             }
         }
-        return newContent;
+        return { content: newContent, injected };
     }
 
     private generateChapterContent(reqs: Requirement[]): string {
