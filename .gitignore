@@ -5,5 +5,8 @@ coverage/
 .npm-cache/
 .gemini/
 .DS_Store
+
+# Override global ignore for dist
+!dist/
 dist/index.js.map
 dist/sourcemap-register.js
