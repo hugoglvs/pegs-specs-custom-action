@@ -27,6 +27,12 @@ inputs:
   logo-path:
     description: "Path to the project logo image"
     required: false
+  pdf-theme-path:
+    description: "Path to a custom YAML theme file for PDF generation"
+    required: false
+  pdf-fonts-dir:
+    description: "Path to a directory containing custom fonts for PDF generation"
+    required: false
 runs:
   using: "node20"
   main: "dist/index.js"

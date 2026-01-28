@@ -26095,8 +26095,18 @@ async function run() {
         }
         // Write master adoc
         await fs.promises.writeFile(masterAdocPath, masterContent);
+        const pdfThemePath = core.getInput('pdf-theme-path');
+        const pdfFontsDir = core.getInput('pdf-fonts-dir');
+        let pdfCommand = `asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read`;
+        if (pdfThemePath) {
+            pdfCommand += ` -a pdf-theme=${pdfThemePath}`;
+        }
+        if (pdfFontsDir) {
+            pdfCommand += ` -a pdf-fontsdir=${pdfFontsDir}`;
+        }
+        pdfCommand += ` ${masterAdocPath}`;
         core.info(`Compiling Master PDF: ${masterAdocPath}...`);
-        await exec.exec(`asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read ${masterAdocPath}`);
+        await exec.exec(pdfCommand);
         core.endGroup();
         core.info('Done!');
     }
