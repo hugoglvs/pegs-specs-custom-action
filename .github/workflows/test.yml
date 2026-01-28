@@ -19,13 +19,12 @@ jobs:
 
       - name: Create Test Requirements
         run: |
-          echo "id,book,chapter,description,reference to,attached files" > requirements.csv
-          echo "G.1,Goals Book,Context and overall objective,Testing PDF gen.,,assets/diagram.puml" >> requirements.csv
-          echo "S.1,System Book,Components,Testing Image.,,assets/image.svg" >> requirements.csv
-          echo "P.1,Project Book,Roles and personnel,Senior developer Hugo.,," >> requirements.csv
-          echo "E.1,Environment Book,Glossary,PEGS stands for Project Environment Goals System.,," >> requirements.csv
-          echo "G.2,Goals Book,Context and overall objective,The system shall run on Linux.,," >> requirements.csv
-          echo "S.2,System Book,Components,The system shall have a 3-tier architecture.,G.1,\"assets/diagram.puml\"" >> requirements.csv
+          echo "id,description,priority,reference to,attached files,book,chapter" > requirements.csv
+          echo "G.1.1,Testing PDF gen.,Low,,assets/diagram.puml,," >> requirements.csv
+          echo "S.1.1,Testing Image.,High,,assets/image.svg,," >> requirements.csv
+          echo "P.1.1,Senior developer Hugo.,Medium,,," >> requirements.csv
+          echo "E.1.1,PEGS stands for Project Environment Goals System.,Low,,," >> requirements.csv
+          echo "G.2.1,The system shall run on Linux.,High,,," >> requirements.csv
 
       - name: Run PEGS Specs Action
         uses: ./

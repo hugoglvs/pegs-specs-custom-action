@@ -42,6 +42,7 @@ const parser_1 = require("./parser");
 const generator_1 = require("./generator");
 const validator_1 = require("./validator");
 const structure_1 = require("./structure");
+const changelog_1 = require("./changelog");
 async function run() {
     try {
         const requirementsPath = core.getInput('requirements-path');
@@ -114,6 +115,24 @@ async function run() {
             if (fileName) {
                 finalBookSequence.push({ type: bookNode.title, file: fileName, title: bookNode.title });
             }
+        }
+        // Append Changelog
+        try {
+            core.info('Generating Changelog...');
+            const changelogEntries = await (0, changelog_1.getChangelog)();
+            if (changelogEntries.length > 0) {
+                const changelogContent = (0, changelog_1.generateChangelogAdoc)(changelogEntries);
+                const changelogFile = 'changelog.adoc';
+                await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
+                finalBookSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
+                core.info(`Added Changelog with ${changelogEntries.length} entries.`);
+            }
+            else {
+                core.info('No tags found for Changelog.');
+            }
+        }
+        catch (err) {
+            core.warning(`Failed to generate changelog: ${err}`);
         }
         core.info(`Ordered books for generation: ${finalBookSequence.map(b => b.title).join(', ')}`);
         for (const book of finalBookSequence) {

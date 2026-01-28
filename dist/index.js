@@ -25643,6 +25643,104 @@ module.exports = {
 
 /***/ }),
 
+/***/ 8397:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getChangelog = getChangelog;
+exports.generateChangelogAdoc = generateChangelogAdoc;
+const exec = __importStar(__nccwpck_require__(5236));
+async function getChangelog() {
+    const entries = [];
+    let output = '';
+    const options = {
+        listeners: {
+            stdout: (data) => {
+                output += data.toString();
+            }
+        },
+        silent: true,
+        ignoreReturnCode: true // Don't fail if no tags
+    };
+    // Format: Version|Date|Subject
+    // Use --sort=-creatordate to get newest first
+    // Note: %(contents:subject) works for annotated tags. For lightweight tags, it might be empty.
+    // We try to capture standard tag usage.
+    try {
+        await exec.exec('git', ['tag', '-n1', '--sort=-creatordate', '--format=%(refname:short)|%(creatordate:short)|%(contents:subject)'], options);
+    }
+    catch (error) {
+        console.warn('Failed to fetch tags for changelog:', error);
+        return [];
+    }
+    const lines = output.trim().split('\n');
+    for (const line of lines) {
+        if (!line)
+            continue;
+        const parts = line.split('|');
+        if (parts.length >= 3) {
+            entries.push({
+                version: parts[0].trim(),
+                date: parts[1].trim(),
+                comment: parts.slice(2).join('|').trim() // Rejoin in case pipe in comment
+            });
+        }
+    }
+    return entries;
+}
+function generateChangelogAdoc(entries) {
+    if (entries.length === 0) {
+        return '';
+    }
+    let content = '== Changelog\n\n';
+    content += '[cols="1,1,3", options="header"]\n';
+    content += '|===\n';
+    content += '| Version | Date | Description\n';
+    for (const entry of entries) {
+        content += `| ${entry.version} | ${entry.date} | ${entry.comment}\n`;
+    }
+    content += '|===\n';
+    return content;
+}
+
+
+/***/ }),
+
 /***/ 4950:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -25876,6 +25974,7 @@ const parser_1 = __nccwpck_require__(7196);
 const generator_1 = __nccwpck_require__(4950);
 const validator_1 = __nccwpck_require__(6985);
 const structure_1 = __nccwpck_require__(5842);
+const changelog_1 = __nccwpck_require__(8397);
 async function run() {
     try {
         const requirementsPath = core.getInput('requirements-path');
@@ -25948,6 +26047,24 @@ async function run() {
             if (fileName) {
                 finalBookSequence.push({ type: bookNode.title, file: fileName, title: bookNode.title });
             }
+        }
+        // Append Changelog
+        try {
+            core.info('Generating Changelog...');
+            const changelogEntries = await (0, changelog_1.getChangelog)();
+            if (changelogEntries.length > 0) {
+                const changelogContent = (0, changelog_1.generateChangelogAdoc)(changelogEntries);
+                const changelogFile = 'changelog.adoc';
+                await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
+                finalBookSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
+                core.info(`Added Changelog with ${changelogEntries.length} entries.`);
+            }
+            else {
+                core.info('No tags found for Changelog.');
+            }
+        }
+        catch (err) {
+            core.warning(`Failed to generate changelog: ${err}`);
         }
         core.info(`Ordered books for generation: ${finalBookSequence.map(b => b.title).join(', ')}`);
         for (const book of finalBookSequence) {

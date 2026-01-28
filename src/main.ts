@@ -7,6 +7,7 @@ import { parseRequirements } from './parser';
 import { AdocGenerator } from './generator';
 import { RequirementValidator } from './validator';
 import { loadStructure } from './structure';
+import { getChangelog, generateChangelogAdoc } from './changelog';
 
 async function run(): Promise<void> {
   try {
@@ -93,6 +94,23 @@ async function run(): Promise<void> {
       if (fileName) {
         finalBookSequence.push({ type: bookNode.title, file: fileName, title: bookNode.title });
       }
+    }
+
+    // Append Changelog
+    try {
+      core.info('Generating Changelog...');
+      const changelogEntries = await getChangelog();
+      if (changelogEntries.length > 0) {
+        const changelogContent = generateChangelogAdoc(changelogEntries);
+        const changelogFile = 'changelog.adoc';
+        await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
+        finalBookSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
+        core.info(`Added Changelog with ${changelogEntries.length} entries.`);
+      } else {
+        core.info('No tags found for Changelog.');
+      }
+    } catch (err) {
+      core.warning(`Failed to generate changelog: ${err}`);
     }
 
 
