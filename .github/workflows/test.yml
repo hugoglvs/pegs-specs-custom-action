@@ -25,7 +25,7 @@ jobs:
           echo "P.1.1,Senior developer Hugo.,Medium,," >> requirements.csv
           echo "E.1.1,PEGS stands for Project Environment Goals System.,Low,," >> requirements.csv
           echo "G.2.1,The system shall run on Linux.,High,," >> requirements.csv
-          echo "S.2.1,The system shall have a 3-tier architecture.,High,G.1.1,assets/diagram.puml" >> requirements.csv
+          echo "S.2.1,The system shall have a 3-tier architecture.,High,G.1.1,assets/diagram.puml|Primary Architecture;assets/image.svg|Context Diagram" >> requirements.csv
           echo "P.3.1,Project management rules.,High,," >> requirements.csv
           echo "P.4.1,Validation strategy.,High,," >> requirements.csv
           echo "E.3.1,System constraints.,High,," >> requirements.csv

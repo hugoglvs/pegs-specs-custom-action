@@ -4,7 +4,7 @@ S.1.1,Testing Image.,,,assets/image.svg,High
 P.1.1,Senior developer Hugo.,,,,Medium
 E.1.1,PEGS stands for Project Environment Goals System.,,,,Low
 G.2.1,The system shall run on Linux.,,,,High
-S.2.1,The system shall have a 3-tier architecture.,G.1.1,"assets/diagram.puml",High
+S.2.1,The system shall have a 3-tier architecture.,G.1.1,,assets/diagram.puml|This is a diagram;assets/image.svg|Alternative view,High
 P.3.1,Project shall be managed using Agile methodology.,,,,High
 P.4.1,Validation shall be performed by the QA team.,,,,High
 E.3.1,The system must comply with GDPR.,,,,High
