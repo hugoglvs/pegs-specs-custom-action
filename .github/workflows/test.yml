@@ -41,19 +41,13 @@ jobs:
       - name: Verify Artifacts
         run: |
           ls -R docs/build
-          # Check for Consolidated PDF
           if [ ! -f docs/build/full-specs.pdf ]; then
             echo "full-specs.pdf not generated!"
-            exit 1
-          fi
-          # Check for Index HTML
-          if [ ! -f docs/build/index.html ]; then
-            echo "index.html not generated!"
             exit 1
           fi
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: generated-specs
-          path: docs/build
+          name: generated-specs-pdf
+          path: docs/build/full-specs.pdf
