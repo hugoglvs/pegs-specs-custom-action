@@ -38,7 +38,7 @@ jobs:
           requirements-path: "requirements.csv"
           output-dir: "docs/build"
           project-name: "PEGS Demo Project"
-          authors: "Hugo, John Doe"
+          authors: "Hugo, Léa"
           logo-path: "assets/image.svg"
 
       - name: Verify Artifacts

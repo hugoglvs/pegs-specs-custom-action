@@ -115,6 +115,7 @@ async function run() {
         if (authors)
             masterContent += `${authors}\n`;
         masterContent += `${generationDate}\n`;
+        masterContent += ':title-page:\n';
         masterContent += ':toc: left\n:toclevels: 2\n';
         if (logoPath) {
             // Use absolute path for logo to ensure asciidoctor-pdf can find it regardless of CWD
@@ -126,7 +127,7 @@ async function run() {
                 core.warning(`Logo not found at ${absoluteLogoPath}`);
             }
         }
-        masterContent += '\n<<<\n\n';
+        masterContent += '\n\n<<<\n\n';
         // List of books to include in the order they will appear
         const finalBookSequence = [];
         // Iterate structure to define order

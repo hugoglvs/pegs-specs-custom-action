@@ -93,6 +93,7 @@ async function run(): Promise<void> {
     let masterContent = `= ${projectName}\n`;
     if (authors) masterContent += `${authors}\n`;
     masterContent += `${generationDate}\n`;
+    masterContent += ':title-page:\n';
     masterContent += ':toc: left\n:toclevels: 2\n';
 
     if (logoPath) {
@@ -104,7 +105,7 @@ async function run(): Promise<void> {
         core.warning(`Logo not found at ${absoluteLogoPath}`);
       }
     }
-    masterContent += '\n<<<\n\n';
+    masterContent += '\n\n<<<\n\n';
 
     // List of books to include in the order they will appear
     const finalBookSequence: { type: string, file: string, title: string }[] = [];
