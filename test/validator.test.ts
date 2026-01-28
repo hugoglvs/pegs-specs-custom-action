@@ -19,8 +19,12 @@ describe('RequirementValidator', () => {
         validator = new RequirementValidator('templates');
         jest.clearAllMocks();
 
-        // Mock template existence
-        mockExistsSync.mockReturnValue(true);
+        // Mock template existence and attached file existence
+        mockExistsSync.mockImplementation((path: string) => {
+            if (path.includes('.adoc')) return true;
+            if (path === 'existing.png') return true;
+            return false;
+        });
 
         // Mock template content building a standard PEGS map
         mockReadFile.mockImplementation((path: string) => {
@@ -158,6 +162,32 @@ describe('RequirementValidator', () => {
             const result = await validator.validate(reqs);
             expect(result.isValid).toBe(false);
             expect(result.errors[0]).toContain('Parent requirement \'S.1\' not found');
+        });
+
+        it('should fail when attached file does not exist', async () => {
+            const reqs: Requirement[] = [{
+                id: 'S.1.3',
+                book: 'System Book',
+                chapter: 'Components',
+                description: 'missing file',
+                attachedFiles: 'missing.png'
+            }];
+            const result = await validator.validate(reqs);
+            expect(result.isValid).toBe(false);
+            expect(result.errors[0]).toContain('Attached file \'missing.png\' not found');
+        });
+
+        it('should pass when attached file exists', async () => {
+            const reqs: Requirement[] = [{
+                id: 'S.1.4',
+                book: 'System Book',
+                chapter: 'Components',
+                description: 'existing file',
+                attachedFiles: 'existing.png'
+            }];
+            const result = await validator.validate(reqs);
+            if (!result.isValid) console.error(result.errors);
+            expect(result.isValid).toBe(true);
         });
     });
 });

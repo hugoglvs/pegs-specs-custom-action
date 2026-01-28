@@ -31,6 +31,7 @@ export class RequirementValidator {
             this.validateIDFormat(req, result);
             this.validateNestingDepth(req, result);
             this.validateParentExistence(req, validIds, result);
+            this.validateAttachedFiles(req, result);
         }
 
         return result;
@@ -132,6 +133,20 @@ export class RequirementValidator {
             if (!validIds.has(req.parent)) {
                 result.errors.push(`Requirement ${req.id}: Parent requirement '${req.parent}' not found. Top-level requirements should have an empty parent field.`);
                 result.isValid = false;
+            }
+        }
+    }
+
+    private validateAttachedFiles(req: Requirement, result: ValidationResult) {
+        if (req.attachedFiles) {
+            // Assume single file path or comma-separated
+            const filePaths = req.attachedFiles.split(',').map(p => p.trim());
+            for (const filePath of filePaths) {
+                if (!filePath) continue;
+                if (!fs.existsSync(filePath)) {
+                    result.errors.push(`Requirement ${req.id}: Attached file '${filePath}' not found.`);
+                    result.isValid = false;
+                }
             }
         }
     }
