@@ -14,6 +14,25 @@ inputs:
     description: "Path to the directory containing .adoc templates"
     required: false
     default: "templates"
+  structure-path:
+    description: "Path to CSV file defining document structure"
+    required: false
+    default: "structure.csv"
+  project-name:
+    description: "The name of the project"
+    required: false
+  authors:
+    description: "Comma-separated list of authors"
+    required: false
+  logo-path:
+    description: "Path to the project logo image"
+    required: false
+  pdf-theme-path:
+    description: "Path to a custom YAML theme file for PDF generation"
+    required: false
+  pdf-fonts-dir:
+    description: "Path to a directory containing custom fonts for PDF generation"
+    required: false
 runs:
   using: "node20"
   main: "dist/index.js"

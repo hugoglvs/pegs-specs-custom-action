@@ -5,22 +5,45 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { parseRequirements } from './parser';
 import { AdocGenerator } from './generator';
+import { RequirementValidator } from './validator';
+import { loadStructure } from './structure';
+import { getChangelog, generateChangelogAdoc } from './changelog';
 
 async function run(): Promise<void> {
   try {
     const requirementsPath = core.getInput('requirements-path');
     const outputDir = core.getInput('output-dir');
     const templatesPath = core.getInput('templates-path');
+    const structurePath = core.getInput('structure-path') || 'structure.csv';
+
+    core.info(`Loading structure from ${structurePath}`);
+    const structure = loadStructure(structurePath);
 
     core.info(`Reading requirements from ${requirementsPath}`);
-    const data = await parseRequirements(requirementsPath);
+    const data = await parseRequirements(requirementsPath, structure);
 
     core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
 
-    core.info(`Using templates from ${templatesPath}...`);
+    // Validate Requirements
+    core.info('Validating requirements ID and structure...');
+    const validator = new RequirementValidator();
+    const validationResult = await validator.validate(data.requirements, structure);
+
+    if (validationResult.warnings.length > 0) {
+      validationResult.warnings.forEach(w => core.warning(w));
+    }
+
+    if (!validationResult.isValid) {
+      validationResult.errors.forEach(e => core.error(e));
+      core.setFailed('Validation failed. Please correct the errors above.');
+      return;
+    }
+    core.info('Validation passed.');
+
     core.info(`Generating AsciiDoc files in ${outputDir}...`);
     const generator = new AdocGenerator(outputDir, templatesPath);
-    const generatedFilesMap = await generator.generate(data);
+    // Generate books based on structure (returns Map<BookTitle, FileName>)
+    const generatedFilesMap = await generator.generate(data, structure);
 
     // Install dependencies
     core.startGroup('Installing Asciidoctor dependencies');
@@ -54,150 +77,90 @@ async function run(): Promise<void> {
       await io.cp(assetsSource, assetsDest, { recursive: true, force: true });
     }
 
+    const projectName = core.getInput('project-name') || process.env.GITHUB_REPOSITORY?.split('/')[1] || 'Project Specifications';
+    const authorsInput = core.getInput('authors') || process.env.GITHUB_REPOSITORY_OWNER || '';
+    const authors = authorsInput.split(',').map(a => a.trim()).join('; ');
+    const logoPath = core.getInput('logo-path');
+    const generationDate = new Date().toISOString().split('T')[0];
+
     // Build PDF and HTML
     core.startGroup('Building Artifacts');
 
     // 1. Generate Master PDF
-    // Order: Project -> Environment -> Goals -> System
-    // We try to find the files for these books in the generated map
-    // Keys in generatedFilesMap are the book names from CSV (e.g. "Goals Book")
-    const bookOrder = ['Project', 'Environment', 'Goals', 'System'];
-    // Helper to find the file for a book type (matches if book name starts with type)
-    const findFile = (type: string) => {
-      for (const [bookName, fileName] of generatedFilesMap.entries()) {
-        if (bookName.toLowerCase().startsWith(type.toLowerCase())) {
-          return fileName;
-        }
-      }
-      return null;
-    };
-
+    // Prefer Structure Order
     const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
-    let masterContent = '= Project Specifications\n:toc: left\n:toclevels: 2\n\n';
 
-    // Track valid files for HTML generation later
-    const validBooks: { type: string, file: string, title: string }[] = [];
+    let masterContent = `= ${projectName}\n`;
+    if (authors) masterContent += `${authors}\n`;
+    masterContent += `${generationDate}\n`;
+    masterContent += ':title-page:\n';
+    masterContent += ':toc: left\n:toclevels: 2\n';
 
-    for (const type of bookOrder) {
-      const fileName = findFile(type);
-      if (fileName) {
-        // For PDF, we include them
-        // We typically need to adjust level offset so they become chapters of the master doc
-        masterContent += `include::${fileName}[leveloffset=+1]\n\n`;
-        validBooks.push({ type, file: fileName, title: type });
+    if (logoPath) {
+      // Use absolute path for logo to ensure asciidoctor-pdf can find it regardless of CWD
+      const absoluteLogoPath = path.isAbsolute(logoPath) ? logoPath : path.resolve(process.cwd(), logoPath);
+      if (fs.existsSync(absoluteLogoPath)) {
+        masterContent += `:title-logo-image: image:${absoluteLogoPath}[pdfwidth=50%,align=center]\n`;
+      } else {
+        core.warning(`Logo not found at ${absoluteLogoPath}`);
       }
+    }
+    masterContent += '\n\n<<<\n\n';
+
+    // List of books to include in the order they will appear
+    const finalBookSequence: { type: string, file: string, title: string }[] = [];
+
+    // Iterate structure to define order
+    for (const bookNode of structure.books) {
+      const fileName = generatedFilesMap.get(bookNode.title);
+      if (fileName) {
+        finalBookSequence.push({ type: bookNode.title, file: fileName, title: bookNode.title });
+      }
+    }
+
+    // Append Changelog
+    try {
+      core.info('Generating Changelog...');
+      const changelogEntries = await getChangelog();
+      if (changelogEntries.length > 0) {
+        const changelogContent = generateChangelogAdoc(changelogEntries);
+        const changelogFile = 'changelog.adoc';
+        await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
+        finalBookSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
+        core.info(`Added Changelog with ${changelogEntries.length} entries.`);
+      } else {
+        core.info('No tags found for Changelog.');
+      }
+    } catch (err) {
+      core.warning(`Failed to generate changelog: ${err}`);
+    }
+
+
+    core.info(`Ordered books for generation: ${finalBookSequence.map(b => b.title).join(', ')}`);
+
+    for (const book of finalBookSequence) {
+      // For PDF, we include them
+      // We typically need to adjust level offset so they become chapters of the master doc
+      masterContent += `<<<\ninclude::${book.file}[leveloffset=+1]\n\n`;
     }
 
     // Write master adoc
     await fs.promises.writeFile(masterAdocPath, masterContent);
 
+    const pdfThemePath = core.getInput('pdf-theme-path');
+    const pdfFontsDir = core.getInput('pdf-fonts-dir');
+
+    let pdfCommand = `asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read`;
+    if (pdfThemePath) {
+      pdfCommand += ` -a pdf-theme=${pdfThemePath}`;
+    }
+    if (pdfFontsDir) {
+      pdfCommand += ` -a pdf-fontsdir=${pdfFontsDir}`;
+    }
+    pdfCommand += ` ${masterAdocPath}`;
+
     core.info(`Compiling Master PDF: ${masterAdocPath}...`);
-    await exec.exec(`asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read ${masterAdocPath}`);
-
-    // 2. Generate Tabbed HTML
-    // First, generate partial HTMLs for each book (body only)
-    for (const book of validBooks) {
-      const filePath = path.join(outputDir, book.file);
-      // -s for no header/footer, -o to output specific html file
-      const htmlOut = filePath.replace('.adoc', '.html');
-      await exec.exec(`asciidoctor -r asciidoctor-diagram -a allow-uri-read -s -o ${htmlOut} ${filePath}`);
-    }
-
-    // Read partials and inject into index.html
-    let tabsHtml = '<div class="tab">\n';
-    let contentHtml = '';
-
-    for (let i = 0; i < validBooks.length; i++) {
-      const book = validBooks[i];
-      const isActive = i === 0 ? 'active' : '';
-      const displayStyle = i === 0 ? 'block' : 'none';
-
-      tabsHtml += `<button class="tablinks ${isActive}" onclick="openBook(event, '${book.type}')">${book.title}</button>\n`;
-
-      const partialPath = path.join(outputDir, book.file.replace('.adoc', '.html'));
-      const partialContent = await fs.promises.readFile(partialPath, 'utf-8');
-
-      contentHtml += `<div id="${book.type}" class="tabcontent" style="display:${displayStyle}">
-                ${partialContent}
-            </div>\n`;
-    }
-    tabsHtml += '</div>\n';
-
-    const indexHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body {font-family: Arial;}
-
-/* Style the tab */
-.tab {
-  overflow: hidden;
-  border: 1px solid #ccc;
-  background-color: #f1f1f1;
-}
-
-/* Style the buttons inside the tab */
-.tab button {
-  background-color: inherit;
-  float: left;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  padding: 14px 16px;
-  transition: 0.3s;
-  font-size: 17px;
-}
-
-/* Change background color of buttons on hover */
-.tab button:hover {
-  background-color: #ddd;
-}
-
-/* Create an active/current tablink class */
-.tab button.active {
-  background-color: #ccc;
-}
-
-/* Style the tab content */
-.tabcontent {
-  display: none;
-  padding: 6px 12px;
-  border: 1px solid #ccc;
-  border-top: none;
-}
-</style>
-</head>
-<body>
-
-<h2>Project Specifications</h2>
-
-${tabsHtml}
-
-${contentHtml}
-
-<script>
-function openBook(evt, bookName) {
-  var i, tabcontent, tablinks;
-  tabcontent = document.getElementsByClassName("tabcontent");
-  for (i = 0; i < tabcontent.length; i++) {
-    tabcontent[i].style.display = "none";
-  }
-  tablinks = document.getElementsByClassName("tablinks");
-  for (i = 0; i < tablinks.length; i++) {
-    tablinks[i].className = tablinks[i].className.replace(" active", "");
-  }
-  document.getElementById(bookName).style.display = "block";
-  evt.currentTarget.className += " active";
-}
-</script>
-   
-</body>
-</html> 
-`;
-    await fs.promises.writeFile(path.join(outputDir, 'index.html'), indexHtml);
-    core.info('Generated index.html with tabs.');
+    await exec.exec(pdfCommand);
 
     core.endGroup();
     core.info('Done!');
