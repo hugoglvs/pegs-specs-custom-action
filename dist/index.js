@@ -1,4 +1,4 @@
-require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
+/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
 /***/ 4914:
@@ -25773,6 +25773,9 @@ class AdocGenerator {
         let content = '';
         for (const req of reqs) {
             content += `=== ${req.id}\n`;
+            if (req.priority) {
+                content += `*Priority*: ${req.priority}\n\n`;
+            }
             content += `*Description*: ${req.description}\n\n`;
             if (req.referenceTo) {
                 const refs = req.referenceTo.split(',').map(r => r.trim());
@@ -26133,6 +26136,7 @@ async function parseRequirements(filePath) {
             book: record['book'],
             chapter: record['chapter'],
             description: record['description'],
+            priority: record['priority'],
             referenceTo: record['reference to'] || record['reference_to'], // handle both for robustness
             attachedFiles: record['attached files'] || record['attached_files'],
         };
@@ -29962,4 +29966,3 @@ exports.parse = parse;
 /******/ 	
 /******/ })()
 ;
-//# sourceMappingURL=index.js.map

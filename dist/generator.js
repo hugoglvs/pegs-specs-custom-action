@@ -124,6 +124,9 @@ class AdocGenerator {
         let content = '';
         for (const req of reqs) {
             content += `=== ${req.id}\n`;
+            if (req.priority) {
+                content += `*Priority*: ${req.priority}\n\n`;
+            }
             content += `*Description*: ${req.description}\n\n`;
             if (req.referenceTo) {
                 const refs = req.referenceTo.split(',').map(r => r.trim());

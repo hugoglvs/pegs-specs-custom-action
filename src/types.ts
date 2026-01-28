@@ -3,6 +3,7 @@ export interface Requirement {
     book: string;
     chapter: string;
     description: string;
+    priority?: string; // "priority" column (MSCW)
     referenceTo?: string; // "reference to" column
     attachedFiles?: string; // "attached files" column
 }

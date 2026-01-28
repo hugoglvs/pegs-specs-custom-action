@@ -1,5 +1,5 @@
-id,book,chapter,description,reference to,attached files
-P.1,Project Book,Roles and personnel,Senior developer Hugo.,,
-E.1,Environment Book,Glossary,PEGS stands for Project Environment Goals System.,,
-G.1,Goals Book,Context and overall objective,The system shall run on Linux.,,
-S.1,System Book,Components,The system shall have a 3-tier architecture.,G.1,"assets/diagram.puml"
+id,book,chapter,description,priority,reference to,attached files
+P.1,Project Book,Roles and personnel,Senior developer Hugo.,Must,,
+E.1,Environment Book,Glossary,PEGS stands for Project Environment Goals System.,Should,,
+G.1,Goals Book,Context and overall objective,The system shall run on Linux.,Must,,
+S.1,System Book,Components,The system shall have a 3-tier architecture.,Must,G.1,"assets/diagram.puml"
