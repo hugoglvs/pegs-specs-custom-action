@@ -10,13 +10,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create Dummy Assets
-        run: |
-          mkdir -p assets
-          printf "@startuml\nUser->System:Test\n@enduml" > assets/diagram.puml
-          # Create a tiny red dot SVG
-          echo '<svg width="10" height="10"><circle cx="5" cy="5" r="4" fill="red"/></svg>' > assets/image.svg
-
       - name: Run PEGS Specs Action
         uses: ./
         with:
