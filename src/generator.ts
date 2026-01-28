@@ -102,10 +102,14 @@ export class AdocGenerator {
                 // Check if we have requirements for this chapter
                 if (normalizedChapters.has(normalizedTitle)) {
                     const reqs = normalizedChapters.get(normalizedTitle);
-                    if (reqs) {
+                    if (reqs && reqs.length > 0) {
                         console.log(`Injecting ${reqs.length} requirements into chapter: ${chapterTitle}`);
                         newContent += '\n' + this.generateChapterContent(reqs) + '\n';
+                    } else {
+                        newContent += '\n_No requirements for this chapter._\n';
                     }
+                } else {
+                    newContent += '\n_No requirements for this chapter._\n';
                 }
             }
         }

@@ -1,0 +1,54 @@
+= Goals Book
+
+// Goals are "needs of the target organization, which the system will address".
+// While the development team is the principal user of the other books,
+// the Goals book addresses a wider audience: essentially, all stakeholders.
+
+== G.1 Context and overall objective
+
+=== G.1.1
+*Priority*: Must
+
+*Description*: Test req
+
+[#G.1.1]
+---
+
+
+// High-level view of the project: organizational context and reason for building a system.
+
+// [GOAL]
+// This is a goal example.
+// === G.1 Goal Title
+
+== G.2 Current situation
+
+_No requirements for this chapter._
+// Current state of processes to be addressed by the project and the resulting system.
+
+== G.3 Expected benefits
+
+_No requirements for this chapter._
+// New processes, or improvement to existing processes, made possible by the project’s results.
+
+== G.4 Functionality overview
+
+_No requirements for this chapter._
+// Overview of the functions (behavior) of the system. Principal properties only (details are in the System book).
+
+== G.5 High-level usage scenarios
+
+_No requirements for this chapter._
+// Fundamental usage paths through the system.
+
+== G.6 Limitations and exclusions
+
+_No requirements for this chapter._
+// Aspects that the system need not address.
+
+== G.7 Stakeholders and requirements sources
+
+_No requirements for this chapter._
+// Groups of people who can affect the project or be affected by it,
+// and other places to consider for information about the project and system.
+
