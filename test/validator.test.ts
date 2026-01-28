@@ -1,8 +1,9 @@
 import { RequirementValidator } from '../src/validator';
 import { Requirement } from '../src/types';
+import { Structure } from '../src/structure';
 import * as fs from 'fs';
 
-// Mock fs to control template reading
+// Mock fs to control attached file reading
 jest.mock('fs', () => ({
     promises: {
         readFile: jest.fn()
@@ -12,41 +13,45 @@ jest.mock('fs', () => ({
 
 describe('RequirementValidator', () => {
     let validator: RequirementValidator;
-    const mockReadFile = fs.promises.readFile as jest.Mock;
     const mockExistsSync = fs.existsSync as jest.Mock;
 
+    // Create a mock structure that mimics the PEGS standard
+    const mockStructure: Structure = {
+        books: [
+            {
+                id: 'G', title: 'Goals Book', description: '...', children: [
+                    { id: 'G.1', title: 'Context and overall objective', description: '...', children: [] },
+                    { id: 'G.2', title: 'Current situation', description: '...', children: [] }
+                ]
+            },
+            {
+                id: 'S', title: 'System Book', description: '...', children: [
+                    { id: 'S.1', title: 'Components', description: '...', children: [] },
+                    { id: 'S.2', title: 'Functionality', description: '...', children: [] }
+                ]
+            },
+            {
+                id: 'P', title: 'Project Book', description: '...', children: [
+                    { id: 'P.1', title: 'Roles', description: '...', children: [] }
+                ]
+            },
+            {
+                id: 'E', title: 'Environment Book', description: '...', children: [
+                    { id: 'E.1', title: 'Glossary', description: '...', children: [] }
+                ]
+            }
+        ],
+        bookMap: new Map() // We don't use bookMap in validator currently, only structure.books traversal
+    };
+
     beforeEach(() => {
-        validator = new RequirementValidator('templates');
+        validator = new RequirementValidator();
         jest.clearAllMocks();
 
-        // Mock template existence and attached file existence
+        // Mock attached file existence
         mockExistsSync.mockImplementation((path: string) => {
-            if (path.includes('.adoc')) return true;
             if (path === 'existing.png') return true;
             return false;
-        });
-
-        // Mock template content building a standard PEGS map
-        mockReadFile.mockImplementation((path: string) => {
-            if (path.includes('goals.adoc')) {
-                return Promise.resolve(
-                    '== G.1 Context and overall objective\n' +
-                    '== G.2 Current situation'
-                );
-            }
-            if (path.includes('system.adoc')) {
-                return Promise.resolve(
-                    '== S.1 Components\n' +
-                    '== S.2 Functionality'
-                );
-            }
-            if (path.includes('environment.adoc')) {
-                return Promise.resolve('== E.1 Glossary');
-            }
-            if (path.includes('project.adoc')) {
-                return Promise.resolve('== P.1 Roles');
-            }
-            return Promise.resolve('');
         });
     });
 
@@ -58,7 +63,7 @@ describe('RequirementValidator', () => {
                 chapter: 'Components',
                 description: 'test'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(true);
             expect(result.errors).toHaveLength(0);
         });
@@ -76,7 +81,7 @@ describe('RequirementValidator', () => {
                 parent: 'G.1.2',
                 description: 'test'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(true);
         });
     });
@@ -89,7 +94,7 @@ describe('RequirementValidator', () => {
                 chapter: 'Components',
                 description: 'deep'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(true); // Still valid format
             expect(result.warnings).toHaveLength(1);
             expect(result.warnings[0]).toContain('Nesting is very deep');
@@ -104,7 +109,7 @@ describe('RequirementValidator', () => {
                 chapter: 'Components',
                 description: 'bad'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(false);
             expect(result.errors[0]).toContain('ID format invalid');
         });
@@ -116,7 +121,7 @@ describe('RequirementValidator', () => {
                 chapter: 'Components',
                 description: 'mismatch'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(false);
             expect(result.errors[0]).toContain('expected \'S\'');
         });
@@ -128,7 +133,7 @@ describe('RequirementValidator', () => {
                 chapter: 'Components', // Mocks say Components is S.1
                 description: 'mismatch'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(false);
             expect(result.errors[0]).toContain('expected 1');
         });
@@ -146,7 +151,7 @@ describe('RequirementValidator', () => {
                 chapter: 'Functionality',
                 description: 'parent'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(false);
             expect(result.errors[0]).toContain('Child ID must start with Parent ID');
         });
@@ -159,7 +164,7 @@ describe('RequirementValidator', () => {
                 parent: 'S.1', // S.1 is missing from this list
                 description: 'missing parent'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(false);
             expect(result.errors[0]).toContain('Parent requirement \'S.1\' not found');
         });
@@ -172,7 +177,7 @@ describe('RequirementValidator', () => {
                 description: 'missing file',
                 attachedFiles: 'missing.png'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             expect(result.isValid).toBe(false);
             expect(result.errors[0]).toContain('Attached file \'missing.png\' not found');
         });
@@ -185,9 +190,10 @@ describe('RequirementValidator', () => {
                 description: 'existing file',
                 attachedFiles: 'existing.png'
             }];
-            const result = await validator.validate(reqs);
+            const result = validator.validate(reqs, mockStructure);
             if (!result.isValid) console.error(result.errors);
             expect(result.isValid).toBe(true);
         });
     });
 });
+

@@ -1,4 +1,5 @@
 import { Requirement } from './types';
+import { Structure } from './structure';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as core from '@actions/core';
@@ -10,19 +11,20 @@ export interface ValidationResult {
 }
 
 export class RequirementValidator {
-    private templatesPath: string;
     // Map<BookName, Map<ChapterNameNormalized, ChapterNumber>>
     private bookChapterIndex: Map<string, Map<string, number>>;
+    // Map Book Name -> Book ID Prefix (e.g. "Goals Book" -> "G")
+    private bookPrefixMap: Map<string, string>;
 
-    constructor(templatesPath: string) {
-        this.templatesPath = templatesPath;
+    constructor() {
         this.bookChapterIndex = new Map();
+        this.bookPrefixMap = new Map();
     }
 
-    public async validate(requirements: Requirement[]): Promise<ValidationResult> {
+    public validate(requirements: Requirement[], structure: Structure): ValidationResult {
         const result: ValidationResult = { isValid: true, errors: [], warnings: [] };
 
-        await this.buildChapterIndex();
+        this.buildChapterIndex(structure);
 
         // Build set of valid IDs for referential integrity
         const validIds = new Set(requirements.map(r => r.id));
@@ -37,33 +39,22 @@ export class RequirementValidator {
         return result;
     }
 
-    private async buildChapterIndex() {
-        // Known PEGS books and valid prefixes
-        const bookFiles = new Map([
-            ['Goals Book', { file: 'goals.adoc', letter: 'G' }],
-            ['Environment Book', { file: 'environment.adoc', letter: 'E' }],
-            ['Project Book', { file: 'project.adoc', letter: 'P' }],
-            ['System Book', { file: 'system.adoc', letter: 'S' }]
-        ]);
+    private buildChapterIndex(structure: Structure) {
+        for (const bookNode of structure.books) {
+            // Map Book Name -> ID Prefix (e.g. "Goals Book" -> "G")
+            this.bookPrefixMap.set(bookNode.title, bookNode.id);
 
-        for (const [bookName, info] of bookFiles.entries()) {
-            const templatePath = path.join(this.templatesPath, info.file);
-            if (!fs.existsSync(templatePath)) continue;
-
-            const content = await fs.promises.readFile(templatePath, 'utf-8');
             const chapterMap = new Map<string, number>();
 
-            const lines = content.split('\n');
-            for (const line of lines) {
-                // Match "== G.1 Context..."
-                const match = line.match(/^==\s+([A-Z])\.(\d+)\s+(.+)$/);
-                if (match) {
-                    const chapterNum = parseInt(match[2], 10);
-                    const chapterTitle = match[3].trim();
-                    chapterMap.set(chapterTitle.toLowerCase(), chapterNum);
+            for (const chapterNode of bookNode.children) {
+                // ID: G.1 -> Number: 1
+                const parts = chapterNode.id.split('.');
+                if (parts.length >= 2) {
+                    const num = parseInt(parts[1], 10);
+                    chapterMap.set(chapterNode.title.toLowerCase().trim(), num);
                 }
             }
-            this.bookChapterIndex.set(bookName, chapterMap);
+            this.bookChapterIndex.set(bookNode.title, chapterMap);
         }
     }
 
@@ -83,14 +74,8 @@ export class RequirementValidator {
         const chapterNum = parseInt(parts[1], 10);
 
         // Check consistency with Book
-        const bookLetterMap: { [key: string]: string } = {
-            'Goals Book': 'G',
-            'Environment Book': 'E',
-            'Project Book': 'P',
-            'System Book': 'S'
-        };
+        const expectedLetter = this.bookPrefixMap.get(req.book);
 
-        const expectedLetter = bookLetterMap[req.book];
         if (expectedLetter && letter !== expectedLetter) {
             result.errors.push(`Requirement ${req.id}: ID starts with '${letter}' but belongs to '${req.book}' (expected '${expectedLetter}').`);
             result.isValid = false;

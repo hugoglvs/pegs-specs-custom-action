@@ -1,9 +1,13 @@
 import { Requirement, ParsedRequirements } from './types';
+import { Structure, StructureNode } from './structure';
 import * as fs from 'fs';
 import * as path from 'path';
 
 export class AdocGenerator {
     private outputDir: string;
+    // templatesPath is now only used for assets or overrides if needed, but primary structure is dynamic
+    // We keep it for potentially falling back to manual templates if structure is missing? 
+    // Plan says "Remove static .adoc book templates", so we rely fully on structure.
     private templatesPath: string;
 
     constructor(outputDir: string, templatesPath: string) {
@@ -11,110 +15,71 @@ export class AdocGenerator {
         this.templatesPath = templatesPath;
     }
 
-    public async generate(data: ParsedRequirements): Promise<Map<string, string>> {
+    public async generate(data: ParsedRequirements, structure: Structure): Promise<Map<string, string>> {
         // Ensure output dir exists
         await fs.promises.mkdir(this.outputDir, { recursive: true });
 
         const generatedFiles = new Map<string, string>();
 
-        // Group by Book
-        const books = this.groupByBook(data.requirements);
+        // Index requirements by Book then Chapter for easy lookup
+        // Use ID prefixes to match structure if possible, but req has explicit strings.
+        // We'll map structure title -> req.book? 
+        // Better: We iterate the STRUCTURE. For each book in structure, we find matching reqs.
 
-        for (const [bookName, requirements] of books.entries()) {
-            const fileName = await this.generateBook(bookName, requirements);
-            generatedFiles.set(bookName, fileName);
+        // Group reqs by Book Name (normalized)
+        const reqsByBookKey = new Map<string, Requirement[]>();
+        for (const req of data.requirements) {
+            const key = req.book.toLowerCase().trim();
+            if (!reqsByBookKey.has(key)) reqsByBookKey.set(key, []);
+            reqsByBookKey.get(key)?.push(req);
+        }
+
+        for (const bookNode of structure.books) {
+            const fileName = await this.generateBookFromStructure(bookNode, reqsByBookKey);
+            generatedFiles.set(bookNode.title, fileName);
         }
 
         return generatedFiles;
     }
 
-    private groupByBook(requirements: Requirement[]): Map<string, Requirement[]> {
-        const map = new Map<string, Requirement[]>();
-        for (const req of requirements) {
-            if (!map.has(req.book)) {
-                map.set(req.book, []);
-            }
-            map.get(req.book)?.push(req);
+    private async generateBookFromStructure(bookNode: StructureNode, reqsByBookKey: Map<string, Requirement[]>): Promise<string> {
+        let content = `= ${bookNode.title}\n:toc:\n\n`;
+        content += `${bookNode.description}\n\n`;
+
+        // Get requirements for this book
+        const bookReqs = reqsByBookKey.get(bookNode.title.toLowerCase().trim()) || [];
+
+        // Group by Chapter
+        const reqsByChapterKey = new Map<string, Requirement[]>();
+        for (const req of bookReqs) {
+            const cKey = req.chapter.toLowerCase().trim();
+            if (!reqsByChapterKey.has(cKey)) reqsByChapterKey.set(cKey, []);
+            reqsByChapterKey.get(cKey)?.push(req);
         }
-        return map;
-    }
 
-    private async generateBook(bookName: string, requirements: Requirement[]): Promise<string> {
-        const chapters = this.groupByChapter(requirements);
+        for (const chapterNode of bookNode.children) {
+            content += `== ${chapterNode.id} ${chapterNode.title}\n`;
+            content += `${chapterNode.description}\n\n`;
 
-        // Derive template filename from book name (e.g., "Goals Book" -> "goals.adoc")
-        // Assumes typical PEGS naming: "Something Book" or just "Something". 
-        // We'll take the first word or the whole thing if it's single word, lowercased.
-        // Actually, let's try to be smart: "Goals Book" -> "goals.adoc". "System" -> "system.adoc"
-        const templateName = bookName.toLowerCase().split(' ')[0] + '.adoc';
-        const templatePath = path.join(this.templatesPath, templateName);
+            const chapterReqs = reqsByChapterKey.get(chapterNode.title.toLowerCase().trim());
 
-        let content = '';
-
-        if (fs.existsSync(templatePath)) {
-            console.log(`Using template: ${templatePath}`);
-            const templateContent = await fs.promises.readFile(templatePath, 'utf-8');
-            content = this.injectRequirements(templateContent, chapters);
-        } else {
-            console.warn(`Template not found: ${templatePath}. Falling back to default generation.`);
-            content = `= ${bookName}\n:toc:\n\n`;
-            for (const [chapterName, reqs] of chapters.entries()) {
-                content += `== ${chapterName}\n\n`;
-                content += this.generateChapterContent(reqs);
+            if (chapterReqs && chapterReqs.length > 0) {
+                content += this.generateChapterContent(chapterReqs) + '\n';
+            } else {
+                content += `_No requirements for this chapter._\n\n`;
             }
         }
 
-        const cleanName = bookName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const fileName = `${cleanName}.adoc`;
+        // Clean filename: "Goals Book" -> "goals.adoc"
+        // Try to keep consistent with old naming if possible, default to sanitized title
+        let baseName = bookNode.title.toLowerCase().split(' ')[0]; // "goals"
+        if (baseName.length < 3) baseName = bookNode.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+        const fileName = `${baseName}.adoc`;
         await fs.promises.writeFile(path.join(this.outputDir, fileName), content);
         return fileName;
     }
 
-    private injectRequirements(templateContent: string, chapters: Map<string, Requirement[]>): string {
-        // Split by lines to find headers
-        const lines = templateContent.split('\n');
-        let newContent = '';
-
-        // Pre-calculate normalized chapter keys for better matching
-        const normalizedChapters = new Map<string, Requirement[]>();
-        for (const [title, reqs] of chapters.entries()) {
-            normalizedChapters.set(title.toLowerCase().trim(), reqs);
-        }
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            newContent += line + '\n';
-
-            // Check if this line is a level 2 header matching a chapter
-            // e.g. "== Components"
-            const match = line.match(/^==\s+(.+)$/);
-            if (match) {
-                let chapterTitle = match[1].trim();
-
-                // Strip numbered prefix (e.g. "G.1 Context" -> "Context") related to PEGS
-                const prefixMatch = chapterTitle.match(/^[A-Z]\.\d+(\.\d+)*\s+(.+)$/);
-                if (prefixMatch) {
-                    chapterTitle = prefixMatch[2].trim();
-                }
-
-                const normalizedTitle = chapterTitle.toLowerCase().trim();
-
-                // Check if we have requirements for this chapter
-                if (normalizedChapters.has(normalizedTitle)) {
-                    const reqs = normalizedChapters.get(normalizedTitle);
-                    if (reqs && reqs.length > 0) {
-                        console.log(`Injecting ${reqs.length} requirements into chapter: ${chapterTitle}`);
-                        newContent += '\n' + this.generateChapterContent(reqs) + '\n';
-                    } else {
-                        newContent += '\n_No requirements for this chapter._\n';
-                    }
-                } else {
-                    newContent += '\n_No requirements for this chapter._\n';
-                }
-            }
-        }
-        return newContent;
-    }
 
     private generateChapterContent(reqs: Requirement[]): string {
         // Build hierarchy first
@@ -184,16 +149,7 @@ export class AdocGenerator {
         return content;
     }
 
-    private groupByChapter(requirements: Requirement[]): Map<string, Requirement[]> {
-        const map = new Map<string, Requirement[]>();
-        for (const req of requirements) {
-            if (!map.has(req.chapter)) {
-                map.set(req.chapter, []);
-            }
-            map.get(req.chapter)?.push(req);
-        }
-        return map;
-    }
+
 
     private handleAttachedFiles(attachedFiles: string, reqId: string): string {
         let content = '';

@@ -14,6 +14,10 @@ inputs:
     description: "Path to the directory containing .adoc templates"
     required: false
     default: "templates"
+  structure-path:
+    description: "Path to CSV file defining document structure"
+    required: false
+    default: "structure.csv"
 runs:
   using: "node20"
   main: "dist/index.js"

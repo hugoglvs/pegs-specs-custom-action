@@ -35,46 +35,38 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RequirementValidator = void 0;
 const fs = __importStar(require("fs"));
-const path = __importStar(require("path"));
 class RequirementValidator {
-    constructor(templatesPath) {
-        this.templatesPath = templatesPath;
+    constructor() {
         this.bookChapterIndex = new Map();
+        this.bookPrefixMap = new Map();
     }
-    async validate(requirements) {
+    validate(requirements, structure) {
         const result = { isValid: true, errors: [], warnings: [] };
-        await this.buildChapterIndex();
+        this.buildChapterIndex(structure);
+        // Build set of valid IDs for referential integrity
+        const validIds = new Set(requirements.map(r => r.id));
         for (const req of requirements) {
             this.validateIDFormat(req, result);
             this.validateNestingDepth(req, result);
+            this.validateParentExistence(req, validIds, result);
+            this.validateAttachedFiles(req, result);
         }
         return result;
     }
-    async buildChapterIndex() {
-        // Known PEGS books and valid prefixes
-        const bookFiles = new Map([
-            ['Goals Book', { file: 'goals.adoc', letter: 'G' }],
-            ['Environment Book', { file: 'environment.adoc', letter: 'E' }],
-            ['Project Book', { file: 'project.adoc', letter: 'P' }],
-            ['System Book', { file: 'system.adoc', letter: 'S' }]
-        ]);
-        for (const [bookName, info] of bookFiles.entries()) {
-            const templatePath = path.join(this.templatesPath, info.file);
-            if (!fs.existsSync(templatePath))
-                continue;
-            const content = await fs.promises.readFile(templatePath, 'utf-8');
+    buildChapterIndex(structure) {
+        for (const bookNode of structure.books) {
+            // Map Book Name -> ID Prefix (e.g. "Goals Book" -> "G")
+            this.bookPrefixMap.set(bookNode.title, bookNode.id);
             const chapterMap = new Map();
-            const lines = content.split('\n');
-            for (const line of lines) {
-                // Match "== G.1 Context..."
-                const match = line.match(/^==\s+([A-Z])\.(\d+)\s+(.+)$/);
-                if (match) {
-                    const chapterNum = parseInt(match[2], 10);
-                    const chapterTitle = match[3].trim();
-                    chapterMap.set(chapterTitle.toLowerCase(), chapterNum);
+            for (const chapterNode of bookNode.children) {
+                // ID: G.1 -> Number: 1
+                const parts = chapterNode.id.split('.');
+                if (parts.length >= 2) {
+                    const num = parseInt(parts[1], 10);
+                    chapterMap.set(chapterNode.title.toLowerCase().trim(), num);
                 }
             }
-            this.bookChapterIndex.set(bookName, chapterMap);
+            this.bookChapterIndex.set(bookNode.title, chapterMap);
         }
     }
     validateIDFormat(req, result) {
@@ -90,13 +82,7 @@ class RequirementValidator {
         const letter = parts[0];
         const chapterNum = parseInt(parts[1], 10);
         // Check consistency with Book
-        const bookLetterMap = {
-            'Goals Book': 'G',
-            'Environment Book': 'E',
-            'Project Book': 'P',
-            'System Book': 'S'
-        };
-        const expectedLetter = bookLetterMap[req.book];
+        const expectedLetter = this.bookPrefixMap.get(req.book);
         if (expectedLetter && letter !== expectedLetter) {
             result.errors.push(`Requirement ${req.id}: ID starts with '${letter}' but belongs to '${req.book}' (expected '${expectedLetter}').`);
             result.isValid = false;
@@ -126,6 +112,28 @@ class RequirementValidator {
         const parts = req.id.split('.');
         if (parts.length > 6) {
             result.warnings.push(`Requirement ${req.id}: Nesting is very deep (${parts.length} levels). Consider refactoring.`);
+        }
+    }
+    validateParentExistence(req, validIds, result) {
+        if (req.parent) {
+            if (!validIds.has(req.parent)) {
+                result.errors.push(`Requirement ${req.id}: Parent requirement '${req.parent}' not found. Top-level requirements should have an empty parent field.`);
+                result.isValid = false;
+            }
+        }
+    }
+    validateAttachedFiles(req, result) {
+        if (req.attachedFiles) {
+            // Assume single file path or comma-separated
+            const filePaths = req.attachedFiles.split(',').map(p => p.trim());
+            for (const filePath of filePaths) {
+                if (!filePath)
+                    continue;
+                if (!fs.existsSync(filePath)) {
+                    result.errors.push(`Requirement ${req.id}: Attached file '${filePath}' not found.`);
+                    result.isValid = false;
+                }
+            }
         }
     }
 }

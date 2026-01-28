@@ -41,18 +41,22 @@ const fs = __importStar(require("fs"));
 const parser_1 = require("./parser");
 const generator_1 = require("./generator");
 const validator_1 = require("./validator");
+const structure_1 = require("./structure");
 async function run() {
     try {
         const requirementsPath = core.getInput('requirements-path');
         const outputDir = core.getInput('output-dir');
         const templatesPath = core.getInput('templates-path');
+        const structurePath = core.getInput('structure-path') || 'structure.csv';
+        core.info(`Loading structure from ${structurePath}`);
+        const structure = (0, structure_1.loadStructure)(structurePath);
         core.info(`Reading requirements from ${requirementsPath}`);
         const data = await (0, parser_1.parseRequirements)(requirementsPath);
         core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
         // Validate Requirements
         core.info('Validating requirements ID and structure...');
-        const validator = new validator_1.RequirementValidator(templatesPath);
-        const validationResult = await validator.validate(data.requirements);
+        const validator = new validator_1.RequirementValidator();
+        const validationResult = await validator.validate(data.requirements, structure);
         if (validationResult.warnings.length > 0) {
             validationResult.warnings.forEach(w => core.warning(w));
         }
@@ -62,10 +66,10 @@ async function run() {
             return;
         }
         core.info('Validation passed.');
-        core.info(`Using templates from ${templatesPath}...`);
         core.info(`Generating AsciiDoc files in ${outputDir}...`);
         const generator = new generator_1.AdocGenerator(outputDir, templatesPath);
-        const generatedFilesMap = await generator.generate(data);
+        // Generate books based on structure (returns Map<BookTitle, FileName>)
+        const generatedFilesMap = await generator.generate(data, structure);
         // Install dependencies
         core.startGroup('Installing Asciidoctor dependencies');
         // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
@@ -99,37 +103,16 @@ async function run() {
         // Build PDF and HTML
         core.startGroup('Building Artifacts');
         // 1. Generate Master PDF
-        // Preferred Order: Project -> Environment -> Goals -> System, then any others
-        const preferredOrder = ['Project', 'Environment', 'Goals', 'System'];
-        // Helper to find the file for a book type or name
-        const findFileForBook = (bookNameFromData) => {
-            return generatedFilesMap.get(bookNameFromData);
-        };
+        // Prefer Structure Order
         const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
         let masterContent = '= Project Specifications\n:toc: left\n:toclevels: 2\n\n';
         // List of books to include in the order they will appear
         const finalBookSequence = [];
-        const processedBooks = new Set();
-        // First, process preferred books if they exist in the data
-        for (const type of preferredOrder) {
-            for (const bookName of data.books) {
-                if (bookName.toLowerCase().startsWith(type.toLowerCase()) && !processedBooks.has(bookName)) {
-                    const fileName = findFileForBook(bookName);
-                    if (fileName) {
-                        finalBookSequence.push({ type: type, file: fileName, title: bookName });
-                        processedBooks.add(bookName);
-                    }
-                }
-            }
-        }
-        // Then, add any remaining books that weren't in the preferred list
-        for (const bookName of data.books) {
-            if (!processedBooks.has(bookName)) {
-                const fileName = findFileForBook(bookName);
-                if (fileName) {
-                    finalBookSequence.push({ type: bookName, file: fileName, title: bookName });
-                    processedBooks.add(bookName);
-                }
+        // Iterate structure to define order
+        for (const bookNode of structure.books) {
+            const fileName = generatedFilesMap.get(bookNode.title);
+            if (fileName) {
+                finalBookSequence.push({ type: bookNode.title, file: fileName, title: bookNode.title });
             }
         }
         core.info(`Ordered books for generation: ${finalBookSequence.map(b => b.title).join(', ')}`);
