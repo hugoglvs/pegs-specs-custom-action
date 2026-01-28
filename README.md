@@ -41,6 +41,7 @@ The action enforces strict validation. The build will fail if:
 2.  **Book Consistency**: The ID letter must match the Book (`P` for Project, `E` for Environment, etc.).
 3.  **Chapter Consistency**: The ID chapter number must match the actual chapter index (e.g., `Components` is chapter 1 of System Book, so IDs must start with `S.1`).
 4.  **Relationship Consistency**: A child ID must start with its parent's exact ID.
+5.  **Parent Existence**: If a `parent` is specified, it must appear as an `id` in the requirement list. You cannot use Chapter IDs (e.g., `S.2`) as parents; top-level requirements must have an empty parent field.
 
 > [!WARNING]
 > While supported, requirements nested deeper than **6 levels** will trigger a build warning.

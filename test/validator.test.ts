@@ -61,6 +61,11 @@ describe('RequirementValidator', () => {
 
         it('should validate a nested ID consistent with parent', async () => {
             const reqs: Requirement[] = [{
+                id: 'G.1.2',
+                book: 'Goals Book',
+                chapter: 'Context and overall objective',
+                description: 'parent'
+            }, {
                 id: 'G.1.2.1',
                 book: 'Goals Book',
                 chapter: 'Context and overall objective',
@@ -131,10 +136,28 @@ describe('RequirementValidator', () => {
                 chapter: 'Components',
                 parent: 'S.2', // Child S.1.2 is NOT child of S.2
                 description: 'bad parent'
+            }, {
+                id: 'S.2', // Dummy parent to satisfy existence check
+                book: 'System Book',
+                chapter: 'Functionality',
+                description: 'parent'
             }];
             const result = await validator.validate(reqs);
             expect(result.isValid).toBe(false);
             expect(result.errors[0]).toContain('Child ID must start with Parent ID');
+        });
+
+        it('should fail when Parent requirement does not exist', async () => {
+            const reqs: Requirement[] = [{
+                id: 'S.1.2',
+                book: 'System Book',
+                chapter: 'Components',
+                parent: 'S.1', // S.1 is missing from this list
+                description: 'missing parent'
+            }];
+            const result = await validator.validate(reqs);
+            expect(result.isValid).toBe(false);
+            expect(result.errors[0]).toContain('Parent requirement \'S.1\' not found');
         });
     });
 });

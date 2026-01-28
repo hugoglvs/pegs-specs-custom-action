@@ -24,9 +24,13 @@ export class RequirementValidator {
 
         await this.buildChapterIndex();
 
+        // Build set of valid IDs for referential integrity
+        const validIds = new Set(requirements.map(r => r.id));
+
         for (const req of requirements) {
             this.validateIDFormat(req, result);
             this.validateNestingDepth(req, result);
+            this.validateParentExistence(req, validIds, result);
         }
 
         return result;
@@ -120,6 +124,15 @@ export class RequirementValidator {
         const parts = req.id.split('.');
         if (parts.length > 6) {
             result.warnings.push(`Requirement ${req.id}: Nesting is very deep (${parts.length} levels). Consider refactoring.`);
+        }
+    }
+
+    private validateParentExistence(req: Requirement, validIds: Set<string>, result: ValidationResult) {
+        if (req.parent) {
+            if (!validIds.has(req.parent)) {
+                result.errors.push(`Requirement ${req.id}: Parent requirement '${req.parent}' not found. Top-level requirements should have an empty parent field.`);
+                result.isValid = false;
+            }
         }
     }
 }
