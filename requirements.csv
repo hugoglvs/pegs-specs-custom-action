@@ -1,5 +1,13 @@
-id,book,chapter,description,reference to,attached files
-P.1,Project Book,Roles and personnel,Senior developer Hugo.,,
-E.1,Environment Book,Glossary,PEGS stands for Project Environment Goals System.,,
-G.1,Goals Book,Context and overall objective,The system shall run on Linux.,,
-S.1,System Book,Components,The system shall have a 3-tier architecture.,G.1,"assets/diagram.puml"
+id,description,parent,reference to,attached files,priority
+G.1.1,Testing PDF gen.,,,assets/diagram.puml,Low
+S.1.1,Testing Image.,,,assets/image.svg,High
+P.1.1,Senior developer Hugo.,,,,Medium
+E.1.1,PEGS stands for Project Environment Goals System.,,,,Low
+G.2.1,The system shall run on Linux.,,,,High
+S.2.1,The system shall have a 3-tier architecture.,,,assets/diagram.puml|This is a diagram;assets/image.svg|Alternative view,High
+S.2.1.2,The thrird tier is the database tier.,S.2.1,,,High
+P.3.1,Project shall be managed using Agile methodology.,,,,High
+P.4.1,Validation shall be performed by the QA team.,,,,High
+E.3.1,The system must comply with GDPR.,,,,High
+G.3.1,Reduced operational costs.,,,,Medium
+G.7.1,Requirement sources include interviews and document analysis.,,,,Low

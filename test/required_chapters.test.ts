@@ -1,0 +1,58 @@
+import { RequirementValidator } from '../src/validator';
+import { Structure } from '../src/structure';
+import { Requirement } from '../src/types';
+
+describe('Required Chapters Validation', () => {
+    const mockStructure: Structure = {
+        books: [
+            {
+                id: 'G', title: 'Goals Book', description: 'desc', required: false, children: [
+                    { id: 'G.1', title: 'Context', description: 'desc', required: true, children: [] }, // Required
+                    { id: 'G.2', title: 'Current', description: 'desc', required: false, children: [] }  // Not Required
+                ]
+            }
+        ],
+        bookMap: new Map() // Populate if needed by other checks, but required validation iterates books array
+    };
+    // Populate bookMap minimal for other checks to pass/skip
+    mockStructure.bookMap.set('G', mockStructure.books[0]);
+    mockStructure.bookMap.set('G.1', mockStructure.books[0].children[0]);
+    mockStructure.bookMap.set('G.2', mockStructure.books[0].children[1]);
+
+    const validator = new RequirementValidator();
+
+    it('should fail if a required chapter is empty', () => {
+        const requirements: Requirement[] = []; // No requirements
+        const result = validator.validate(requirements, mockStructure);
+
+        expect(result.isValid).toBe(false);
+        expect(result.errors).toContain('Missing requirements for required chapter/book: Context (G.1)');
+    });
+
+    it('should pass if required chapter has requirements', () => {
+        const requirements: Requirement[] = [
+            { id: 'G.1.1', book: 'Goals Book', chapter: 'Context', description: 'd', priority: 'High' }
+        ];
+        const result = validator.validate(requirements, mockStructure);
+
+        // It might fail other checks (like parent existence if not mocked properly), 
+        // but we specifically check for the Missing requirements error NOT being there.
+        // Or ensure minimal validity.
+        // G.1.1 is valid ID. Book 'Goals Book' matches. Chapter 'Context' matches (if we set up index).
+        // Let's rely on specific error check.
+
+        const missingError = result.errors.find(e => e.includes('Missing requirements for required chapter/book'));
+        expect(missingError).toBeUndefined();
+    });
+
+    it('should pass if non-required chapter is empty', () => {
+        const requirements: Requirement[] = [
+            { id: 'G.1.1', book: 'Goals Book', chapter: 'Context', description: 'd', priority: 'High' }
+        ];
+        // G.2 is empty, but required=false. Should not error for G.2.
+        const result = validator.validate(requirements, mockStructure);
+
+        const g2Error = result.errors.find(e => e.includes('G.2'));
+        expect(g2Error).toBeUndefined();
+    });
+});

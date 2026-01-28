@@ -1,0 +1,38 @@
+name: Branch Protection Enforcement
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    types: [opened, synchronize, reopened]
+
+jobs:
+  verify-branch-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify source and target branches
+        run: |
+          TARGET_BRANCH="${{ github.base_ref }}"
+          SOURCE_BRANCH="${{ github.head_ref }}"
+
+          echo "Target Branch: $TARGET_BRANCH"
+          echo "Source Branch: $SOURCE_BRANCH"
+
+          if [ "$TARGET_BRANCH" == "main" ]; then
+            if [ "$SOURCE_BRANCH" != "dev" ]; then
+              echo "::error::Only the 'dev' branch is allowed to be merged into 'main'. Found: '$SOURCE_BRANCH'"
+              exit 1
+            fi
+            echo "Success: 'dev' is being merged into 'main'."
+          fi
+
+          if [ "$TARGET_BRANCH" == "dev" ]; then
+            # Ensure dev only accepts merges from specific branch types
+            # Following the patterns in labeler.yml: feat/, fix/, refactor/
+            if [[ ! "$SOURCE_BRANCH" =~ ^(feat|fix|refactor|docs|chore|ci)/ ]]; then
+              echo "::error::The 'dev' branch only accepts merges from feature/fix/refactor branches (e.g., feat/*). Found: '$SOURCE_BRANCH'"
+              exit 1
+            fi
+            echo "Success: Valid source branch for 'dev'."
+          fi
