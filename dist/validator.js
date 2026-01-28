@@ -125,11 +125,13 @@ class RequirementValidator {
     }
     validateAttachedFiles(req, result) {
         if (req.attachedFiles) {
-            // Assume single file path or comma-separated
-            const filePaths = req.attachedFiles.split(',').map(p => p.trim());
-            for (const filePath of filePaths) {
-                if (!filePath)
+            // Support semicolon-separated list with optional path|caption syntax
+            const items = req.attachedFiles.split(';').map(p => p.trim());
+            for (const item of items) {
+                if (!item)
                     continue;
+                // Extract path (remove caption if present)
+                const filePath = item.split('|')[0].trim();
                 if (!fs.existsSync(filePath)) {
                     result.errors.push(`Requirement ${req.id}: Attached file '${filePath}' not found.`);
                     result.isValid = false;
