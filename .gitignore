@@ -3,6 +3,7 @@ coverage/
 *.pdf
 *.html
 .npm-cache/
+.jest-cache/
 .gemini/
 .DS_Store
 
