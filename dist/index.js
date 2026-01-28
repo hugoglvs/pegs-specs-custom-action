@@ -25908,11 +25908,12 @@ class AdocGenerator {
         for (const item of items) {
             if (!item)
                 continue;
+            const caption = `.Visual for ${reqId}`;
             if (item.match(/\.puml$/i)) {
-                content += `\nplantuml::${item}[format=svg, target=diagram-${reqId}, align=center]\n\n`;
+                content += `\n${caption}\nplantuml::${item}[format=svg, target=diagram-${reqId}, align=center]\n\n`;
             }
             else if (item.match(/\.(png|jpg|jpeg|svg|gif)$/i)) {
-                content += `\nimage::${item}[${reqId} Image, align=center]\n\n`;
+                content += `\n${caption}\nimage::${item}[${reqId} Image, align=center]\n\n`;
             }
             else {
                 content += `\nlink:${item}[Attached File]\n\n`;
