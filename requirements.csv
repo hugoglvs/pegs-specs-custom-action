@@ -1,5 +1,8 @@
-id,book,chapter,description,priority,reference to,attached files
-P.1,Project Book,Roles and personnel,Senior developer Hugo.,Must,,
-E.1,Environment Book,Glossary,PEGS stands for Project Environment Goals System.,Should,,
-G.1,Goals Book,Context and overall objective,The system shall run on Linux.,Must,,
-S.1,System Book,Components,The system shall have a 3-tier architecture.,Must,G.1,"assets/diagram.puml"
+id,book,chapter,description,priority,parent,reference to,attached files
+P.1,Project Book,Roles and personnel,Senior developer Hugo.,Must,,,
+E.1,Environment Book,Glossary,PEGS stands for Project Environment Goals System.,Should,,,
+G.1,Goals Book,Context and overall objective,The system shall run on Linux.,Must,,,
+S.1,System Book,Components,The system shall have a 3-tier architecture.,Must,,G.1,"assets/diagram.puml"
+S.1.1,System Book,Components,The frontend shall be React-based.,Should,S.1,,
+S.1.2,System Book,Components,The backend shall be nodejs-based.,Should,S.1,,
+S.1.2.1,System Book,Components,The backend shall expose a REST API.,Must,S.1.2,,

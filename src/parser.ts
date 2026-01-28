@@ -31,6 +31,7 @@ export async function parseRequirements(filePath: string): Promise<ParsedRequire
             chapter: record['chapter'],
             description: record['description'],
             priority: record['priority'],
+            parent: record['parent'],
             referenceTo: record['reference to'] || record['reference_to'], // handle both for robustness
             attachedFiles: record['attached files'] || record['attached_files'],
         };

@@ -106,9 +106,42 @@ export class AdocGenerator {
     }
 
     private generateChapterContent(reqs: Requirement[]): string {
+        // Build hierarchy first
+        const roots = this.buildHierarchy(reqs);
+        return this.renderRequirements(roots, 3); // Start at level 3 (===)
+    }
+
+    private buildHierarchy(reqs: Requirement[]): Requirement[] {
+        const reqMap = new Map<string, Requirement>();
+        const roots: Requirement[] = [];
+
+        // First pass: map all requirements
+        reqs.forEach(req => {
+            req.children = []; // Initialize children
+            reqMap.set(req.id, req);
+        });
+
+        // Second pass: link parents and children
+        reqs.forEach(req => {
+            if (req.parent && reqMap.has(req.parent)) {
+                // It has a parent in this list
+                const parent = reqMap.get(req.parent);
+                parent?.children?.push(req);
+            } else {
+                // It's a root (no parent, or parent not in this chapter context)
+                roots.push(req);
+            }
+        });
+
+        return roots;
+    }
+
+    private renderRequirements(reqs: Requirement[], level: number): string {
         let content = '';
+        const headerPrefix = '='.repeat(level);
+
         for (const req of reqs) {
-            content += `=== ${req.id}\n`;
+            content += `${headerPrefix} ${req.id}\n`;
             if (req.priority) {
                 content += `*Priority*: ${req.priority}\n\n`;
             }
@@ -125,7 +158,17 @@ export class AdocGenerator {
             }
 
             content += `[#${req.id}]\n`;
-            content += `---\n\n`;
+            // Only add separator if it's a top-level requirement relative to the chapter
+            if (level === 3) {
+                content += `---\n\n`;
+            } else {
+                content += `\n`;
+            }
+
+            // Render children recursively
+            if (req.children && req.children.length > 0) {
+                content += this.renderRequirements(req.children, level + 1);
+            }
         }
         return content;
     }
