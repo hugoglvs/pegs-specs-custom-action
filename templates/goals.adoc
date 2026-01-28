@@ -4,28 +4,28 @@
 // While the development team is the principal user of the other books,
 // the Goals book addresses a wider audience: essentially, all stakeholders.
 
-== Context and overall objective
+== G.1 Context and overall objective
 // High-level view of the project: organizational context and reason for building a system.
 
 // [GOAL]
 // This is a goal example.
 // === G.1 Goal Title
 
-== Current situation
+== G.2 Current situation
 // Current state of processes to be addressed by the project and the resulting system.
 
-== Expected benefits
+== G.3 Expected benefits
 // New processes, or improvement to existing processes, made possible by the project’s results.
 
-== Functionality overview
+== G.4 Functionality overview
 // Overview of the functions (behavior) of the system. Principal properties only (details are in the System book).
 
-== High-level usage scenarios
+== G.5 High-level usage scenarios
 // Fundamental usage paths through the system.
 
-== Limitations and exclusions
+== G.6 Limitations and exclusions
 // Aspects that the system need not address.
 
-== Stakeholders and requirements sources
+== G.7 Stakeholders and requirements sources
 // Groups of people who can affect the project or be affected by it,
 // and other places to consider for information about the project and system.

@@ -3,20 +3,20 @@
 // The System book refines the Goal one by focusing on more detailed requirements
 // about the system under development, mainly its constituents, behaviors and properties.
 
-== Components
+== S.1 Components
 // Overall structure expressed by the list of major software and, if applicable, hardware parts.
 
-== Functionality
+== S.2 Functionality
 // One section for each of the components identified above, describing the corresponding behaviors.
 
-== Interfaces
+== S.3 Interfaces
 // How the system makes the functionality available to the rest of the world (UI/API).
 
-== Detailed usage scenarios
+== S.4 Detailed usage scenarios
 // Examples of interaction between the environment and the system: use cases, user stories.
 
-== Prioritization
+== S.5 Prioritization
 // Classification of the behaviors, interfaces and scenarios by their degree of criticality.
 
-== Verification and acceptance criteria
+== S.6 Verification and acceptance criteria
 // Specification of the conditions under which an implementation will be deemed satisfactory.

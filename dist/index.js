@@ -25755,7 +25755,12 @@ class AdocGenerator {
             // e.g. "== Components"
             const match = line.match(/^==\s+(.+)$/);
             if (match) {
-                const chapterTitle = match[1].trim();
+                let chapterTitle = match[1].trim();
+                // Strip numbered prefix (e.g. "G.1 Context" -> "Context") related to PEGS
+                const prefixMatch = chapterTitle.match(/^[A-Z]\.\d+(\.\d+)*\s+(.+)$/);
+                if (prefixMatch) {
+                    chapterTitle = prefixMatch[2].trim();
+                }
                 const normalizedTitle = chapterTitle.toLowerCase().trim();
                 // Check if we have requirements for this chapter
                 if (normalizedChapters.has(normalizedTitle)) {
