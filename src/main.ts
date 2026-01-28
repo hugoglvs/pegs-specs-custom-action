@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { parseRequirements } from './parser';
 import { AdocGenerator } from './generator';
+import { RequirementValidator } from './validator';
 
 async function run(): Promise<void> {
   try {
@@ -16,6 +17,22 @@ async function run(): Promise<void> {
     const data = await parseRequirements(requirementsPath);
 
     core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
+
+    // Validate Requirements
+    core.info('Validating requirements ID and structure...');
+    const validator = new RequirementValidator(templatesPath);
+    const validationResult = await validator.validate(data.requirements);
+
+    if (validationResult.warnings.length > 0) {
+      validationResult.warnings.forEach(w => core.warning(w));
+    }
+
+    if (!validationResult.isValid) {
+      validationResult.errors.forEach(e => core.error(e));
+      core.setFailed('Validation failed. Please correct the errors above.');
+      return;
+    }
+    core.info('Validation passed.');
 
     core.info(`Using templates from ${templatesPath}...`);
     core.info(`Generating AsciiDoc files in ${outputDir}...`);

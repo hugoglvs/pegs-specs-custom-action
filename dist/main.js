@@ -40,6 +40,7 @@ const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const parser_1 = require("./parser");
 const generator_1 = require("./generator");
+const validator_1 = require("./validator");
 async function run() {
     try {
         const requirementsPath = core.getInput('requirements-path');
@@ -48,6 +49,19 @@ async function run() {
         core.info(`Reading requirements from ${requirementsPath}`);
         const data = await (0, parser_1.parseRequirements)(requirementsPath);
         core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
+        // Validate Requirements
+        core.info('Validating requirements ID and structure...');
+        const validator = new validator_1.RequirementValidator(templatesPath);
+        const validationResult = await validator.validate(data.requirements);
+        if (validationResult.warnings.length > 0) {
+            validationResult.warnings.forEach(w => core.warning(w));
+        }
+        if (!validationResult.isValid) {
+            validationResult.errors.forEach(e => core.error(e));
+            core.setFailed('Validation failed. Please correct the errors above.');
+            return;
+        }
+        core.info('Validation passed.');
         core.info(`Using templates from ${templatesPath}...`);
         core.info(`Generating AsciiDoc files in ${outputDir}...`);
         const generator = new generator_1.AdocGenerator(outputDir, templatesPath);
