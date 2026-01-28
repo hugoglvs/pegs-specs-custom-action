@@ -44,7 +44,14 @@ function loadStructure(filePath) {
     const records = (0, sync_1.parse)(content, {
         columns: true,
         skip_empty_lines: true,
-        trim: true
+        trim: true,
+        cast: (value, context) => {
+            if (context.column === 'required') {
+                // Handle boolean string or empty
+                return value.toLowerCase() === 'true';
+            }
+            return value;
+        }
     });
     const rootNodes = [];
     const nodeMap = new Map();
@@ -54,6 +61,7 @@ function loadStructure(filePath) {
             id: record.id,
             title: record.title,
             description: record.description,
+            required: !!record.required,
             children: []
         };
         nodeMap.set(record.id, node);

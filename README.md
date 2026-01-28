@@ -17,7 +17,22 @@ A GitHub Action to generate professional Project specifications (requirements) d
 | :--- | :--- | :--- | :--- |
 | `requirements-path` | Path to the source CSV file. | **Yes** | `requirements.csv` |
 | `output-dir` | Directory where PDF/HTML artifacts will be generated. | No | `dist` |
+| `structure-path` | Path to the structure definition CSV. | No | `structure.csv` |
 | `templates-path` | Path to the directory containing `.adoc` templates for each book. | No | `templates` |
+
+## Structure Configuration (`structure.csv`)
+This file defines the hierarchy of books and chapters. It must contain the following columns:
+- `id`: Unique identifier (e.g., `G` for Book, `G.1` for Chapter).
+- `title`: Title of the book or chapter.
+- `description`: Brief description.
+- `required`: (Optional) Boolean (`true`/`false`). If `true`, the validator will fail if no requirements are found for this chapter/book. Defaults to `false`.
+
+### Example
+```csv
+id,title,description,required
+G,Goals Book,"Goals are needs...",false
+G.1,Context,"High-level view...",true
+```
 
 ## CSV Schema
 

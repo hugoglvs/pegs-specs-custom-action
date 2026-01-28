@@ -5,6 +5,7 @@ export interface StructureNode {
     id: string;      // e.g., "G", "G.1"
     title: string;
     description: string;
+    required: boolean; // New field
     children: StructureNode[];
 }
 
@@ -22,8 +23,15 @@ export function loadStructure(filePath: string): Structure {
     const records = parse(content, {
         columns: true,
         skip_empty_lines: true,
-        trim: true
-    }) as { id: string; title: string; description: string }[];
+        trim: true,
+        cast: (value, context) => {
+            if (context.column === 'required') {
+                // Handle boolean string or empty
+                return value.toLowerCase() === 'true';
+            }
+            return value;
+        }
+    }) as { id: string; title: string; description: string; required: any }[];
 
     const rootNodes: StructureNode[] = [];
     const nodeMap = new Map<string, StructureNode>();
@@ -34,6 +42,7 @@ export function loadStructure(filePath: string): Structure {
             id: record.id,
             title: record.title,
             description: record.description,
+            required: !!record.required,
             children: []
         };
         nodeMap.set(record.id, node);

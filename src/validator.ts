@@ -1,5 +1,5 @@
 import { Requirement } from './types';
-import { Structure } from './structure';
+import { Structure, StructureNode } from './structure';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as core from '@actions/core';
@@ -35,6 +35,8 @@ export class RequirementValidator {
             this.validateParentExistence(req, validIds, result);
             this.validateAttachedFiles(req, result);
         }
+
+        this.validateRequiredChapters(requirements, structure, result);
 
         return result;
     }
@@ -135,4 +137,39 @@ export class RequirementValidator {
             }
         }
     }
+
+    private validateRequiredChapters(requirements: Requirement[], structure: Structure, result: ValidationResult): void {
+        const coveredNodeIds = new Set<string>();
+
+        for (const req of requirements) {
+            const parts = req.id.split('.');
+            if (parts.length >= 2) {
+                // G.1
+                coveredNodeIds.add(`${parts[0]}.${parts[1]}`);
+                // Also G? Generally strict validation on chapters implies books are covered too.
+                coveredNodeIds.add(parts[0]);
+            }
+        }
+
+        for (const node of structure.books) {
+            this.checkNodeRequirement(node, coveredNodeIds, result);
+        }
+    }
+
+    private checkNodeRequirement(node: StructureNode, coveredIds: Set<string>, result: ValidationResult) {
+        if (node.required) {
+            if (!coveredIds.has(node.id)) {
+                // No requirement found that matches this node ID (e.g. G.1.x)
+                result.errors.push(`Missing requirements for required chapter/book: ${node.title} (${node.id})`);
+                result.isValid = false;
+            }
+        }
+
+        if (node.children) {
+            for (const child of node.children) {
+                this.checkNodeRequirement(child, coveredIds, result);
+            }
+        }
+    }
 }
+

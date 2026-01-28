@@ -51,6 +51,7 @@ class RequirementValidator {
             this.validateParentExistence(req, validIds, result);
             this.validateAttachedFiles(req, result);
         }
+        this.validateRequiredChapters(requirements, structure, result);
         return result;
     }
     buildChapterIndex(structure) {
@@ -133,6 +134,35 @@ class RequirementValidator {
                     result.errors.push(`Requirement ${req.id}: Attached file '${filePath}' not found.`);
                     result.isValid = false;
                 }
+            }
+        }
+    }
+    validateRequiredChapters(requirements, structure, result) {
+        const coveredNodeIds = new Set();
+        for (const req of requirements) {
+            const parts = req.id.split('.');
+            if (parts.length >= 2) {
+                // G.1
+                coveredNodeIds.add(`${parts[0]}.${parts[1]}`);
+                // Also G? Generally strict validation on chapters implies books are covered too.
+                coveredNodeIds.add(parts[0]);
+            }
+        }
+        for (const node of structure.books) {
+            this.checkNodeRequirement(node, coveredNodeIds, result);
+        }
+    }
+    checkNodeRequirement(node, coveredIds, result) {
+        if (node.required) {
+            if (!coveredIds.has(node.id)) {
+                // No requirement found that matches this node ID (e.g. G.1.x)
+                result.errors.push(`Missing requirements for required chapter/book: ${node.title} (${node.id})`);
+                result.isValid = false;
+            }
+        }
+        if (node.children) {
+            for (const child of node.children) {
+                this.checkNodeRequirement(child, coveredIds, result);
             }
         }
     }
