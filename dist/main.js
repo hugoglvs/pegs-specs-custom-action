@@ -51,7 +51,7 @@ async function run() {
         core.info(`Loading structure from ${structurePath}`);
         const structure = (0, structure_1.loadStructure)(structurePath);
         core.info(`Reading requirements from ${requirementsPath}`);
-        const data = await (0, parser_1.parseRequirements)(requirementsPath);
+        const data = await (0, parser_1.parseRequirements)(requirementsPath, structure);
         core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
         // Validate Requirements
         core.info('Validating requirements ID and structure...');

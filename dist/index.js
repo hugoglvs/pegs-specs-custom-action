@@ -25885,7 +25885,7 @@ async function run() {
         core.info(`Loading structure from ${structurePath}`);
         const structure = (0, structure_1.loadStructure)(structurePath);
         core.info(`Reading requirements from ${requirementsPath}`);
-        const data = await (0, parser_1.parseRequirements)(requirementsPath);
+        const data = await (0, parser_1.parseRequirements)(requirementsPath, structure);
         core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
         // Validate Requirements
         core.info('Validating requirements ID and structure...');
@@ -26116,7 +26116,7 @@ exports.parseRequirements = parseRequirements;
 const fs_1 = __importDefault(__nccwpck_require__(9896));
 const csv_parse_1 = __nccwpck_require__(2417);
 const core = __importStar(__nccwpck_require__(7484));
-async function parseRequirements(filePath) {
+async function parseRequirements(filePath, structure) {
     const requirements = [];
     const books = new Set();
     const parser = fs_1.default.createReadStream(filePath).pipe((0, csv_parse_1.parse)({
@@ -26125,21 +26125,40 @@ async function parseRequirements(filePath) {
         skip_empty_lines: true,
     }));
     for await (const record of parser) {
-        // Validate schema loosely (keys might differ slightly case-wise, so we normalize or expect exact headers)
-        // Expected headers: id, book, chapter, description, reference to, attached files
-        // Check if required fields exist
-        if (!record['id'] || !record['book'] || !record['chapter'] || !record['description']) {
-            core.warning(`Skipping invalid row: ${JSON.stringify(record)}`);
+        // Expected headers: id, description (others optional: parent, reference to, attached files)
+        // Removed: book, chapter (inferred)
+        if (!record['id'] || !record['description']) {
+            core.warning(`Skipping invalid row (missing id or description): ${JSON.stringify(record)}`);
+            continue;
+        }
+        const id = record['id'];
+        // Infer Book and Chapter from ID
+        // ID format: G.1.1 -> Book: G, Chapter: G.1
+        const parts = id.split('.');
+        if (parts.length < 2) {
+            core.warning(`Skipping row with invalid ID format (cannot infer Book/Chapter): ${id}. Expected format X.Y...`);
+            continue;
+        }
+        const bookId = parts[0];
+        const chapterId = `${parts[0]}.${parts[1]}`;
+        const bookNode = structure.bookMap.get(bookId);
+        const chapterNode = structure.bookMap.get(chapterId);
+        if (!bookNode) {
+            core.warning(`Skipping row: Book ID '${bookId}' not found in structure.`);
+            continue;
+        }
+        if (!chapterNode) {
+            core.warning(`Skipping row: Chapter ID '${chapterId}' not found in structure.`);
             continue;
         }
         const req = {
-            id: record['id'],
-            book: record['book'],
-            chapter: record['chapter'],
+            id: id,
+            book: bookNode.title,
+            chapter: chapterNode.title,
             description: record['description'],
             priority: record['priority'],
             parent: record['parent'],
-            referenceTo: record['reference to'] || record['reference_to'], // handle both for robustness
+            referenceTo: record['reference to'] || record['reference_to'],
             attachedFiles: record['attached files'] || record['attached_files'],
         };
         requirements.push(req);

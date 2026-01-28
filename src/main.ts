@@ -19,7 +19,7 @@ async function run(): Promise<void> {
     const structure = loadStructure(structurePath);
 
     core.info(`Reading requirements from ${requirementsPath}`);
-    const data = await parseRequirements(requirementsPath);
+    const data = await parseRequirements(requirementsPath, structure);
 
     core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
 
