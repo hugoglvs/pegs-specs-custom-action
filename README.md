@@ -19,6 +19,9 @@ A GitHub Action to generate professional Project specifications (requirements) d
 | `output-dir` | Directory where PDF/HTML artifacts will be generated. | No | `dist` |
 | `structure-path` | Path to the structure definition CSV. | No | `structure.csv` |
 | `templates-path` | Path to the directory containing `.adoc` templates for each book. | No | `templates` |
+| `project-name` | Title of the project for the cover page. | No | Repo name |
+| `authors` | Comma-separated list of authors. | No | Repo owner |
+| `logo-path` | Path to a logo image for the title page. | No | None |
 
 ## Structure Configuration (`structure.csv`)
 This file defines the hierarchy of books and chapters. It must contain the following columns:

@@ -101,12 +101,32 @@ async function run() {
             core.info(`Copying ${assetsSource} to ${assetsDest}...`);
             await io.cp(assetsSource, assetsDest, { recursive: true, force: true });
         }
+        const projectName = core.getInput('project-name') || process.env.GITHUB_REPOSITORY?.split('/')[1] || 'Project Specifications';
+        const authorsInput = core.getInput('authors') || process.env.GITHUB_REPOSITORY_OWNER || '';
+        const authors = authorsInput.split(',').map(a => a.trim()).join('; ');
+        const logoPath = core.getInput('logo-path');
+        const generationDate = new Date().toISOString().split('T')[0];
         // Build PDF and HTML
         core.startGroup('Building Artifacts');
         // 1. Generate Master PDF
         // Prefer Structure Order
         const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
-        let masterContent = '= Project Specifications\n:toc: left\n:toclevels: 2\n\n';
+        let masterContent = `= ${projectName}\n`;
+        if (authors)
+            masterContent += `${authors}\n`;
+        masterContent += `${generationDate}\n`;
+        masterContent += ':toc: left\n:toclevels: 2\n';
+        if (logoPath) {
+            // Use absolute path for logo to ensure asciidoctor-pdf can find it regardless of CWD
+            const absoluteLogoPath = path.isAbsolute(logoPath) ? logoPath : path.resolve(process.cwd(), logoPath);
+            if (fs.existsSync(absoluteLogoPath)) {
+                masterContent += `:title-logo-image: image:${absoluteLogoPath}[pdfwidth=50%,align=center]\n`;
+            }
+            else {
+                core.warning(`Logo not found at ${absoluteLogoPath}`);
+            }
+        }
+        masterContent += '\n';
         // List of books to include in the order they will appear
         const finalBookSequence = [];
         // Iterate structure to define order

@@ -18,6 +18,15 @@ inputs:
     description: "Path to CSV file defining document structure"
     required: false
     default: "structure.csv"
+  project-name:
+    description: "The name of the project"
+    required: false
+  authors:
+    description: "Comma-separated list of authors"
+    required: false
+  logo-path:
+    description: "Path to the project logo image"
+    required: false
 runs:
   using: "node20"
   main: "dist/index.js"
