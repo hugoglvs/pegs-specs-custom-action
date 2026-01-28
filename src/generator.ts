@@ -159,10 +159,10 @@ export class AdocGenerator {
             if (!item) continue;
 
             if (item.match(/\.puml$/i)) {
-                content += `\nplantuml::${item}[format=svg, target=diagram-${reqId}]\n\n`;
+                content += `\nplantuml::${item}[format=svg, target=diagram-${reqId}, align=center]\n\n`;
             }
             else if (item.match(/\.(png|jpg|jpeg|svg|gif)$/i)) {
-                content += `\nimage::${item}[${reqId} Image]\n\n`;
+                content += `\nimage::${item}[${reqId} Image, align=center]\n\n`;
             }
             else {
                 content += `\nlink:${item}[Attached File]\n\n`;
