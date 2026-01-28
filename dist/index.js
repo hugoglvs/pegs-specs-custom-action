@@ -26058,7 +26058,7 @@ async function run() {
                 core.warning(`Logo not found at ${absoluteLogoPath}`);
             }
         }
-        masterContent += '\n';
+        masterContent += '\n<<<\n\n';
         // List of books to include in the order they will appear
         const finalBookSequence = [];
         // Iterate structure to define order

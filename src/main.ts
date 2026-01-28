@@ -104,7 +104,7 @@ async function run(): Promise<void> {
         core.warning(`Logo not found at ${absoluteLogoPath}`);
       }
     }
-    masterContent += '\n';
+    masterContent += '\n<<<\n\n';
 
     // List of books to include in the order they will appear
     const finalBookSequence: { type: string, file: string, title: string }[] = [];
