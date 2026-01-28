@@ -1,4 +1,3 @@
 @startuml
-User -> System: Hello
-System -> User: Hi
+User->System:Test
 @enduml
