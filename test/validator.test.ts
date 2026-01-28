@@ -1,5 +1,5 @@
-import { RequirementValidator } from './validator';
-import { Requirement } from './types';
+import { RequirementValidator } from '../src/validator';
+import { Requirement } from '../src/types';
 import * as fs from 'fs';
 
 // Mock fs to control template reading
