@@ -140,7 +140,7 @@ async function run(): Promise<void> {
     for (const book of finalBookSequence) {
       // For PDF, we include them
       // We typically need to adjust level offset so they become chapters of the master doc
-      masterContent += `include::${book.file}[leveloffset=+1]\n\n`;
+      masterContent += `<<<\ninclude::${book.file}[leveloffset=+1]\n\n`;
     }
 
     // Write master adoc
