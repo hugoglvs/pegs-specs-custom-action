@@ -1,31 +1,31 @@
-id,title,description,required
-G,Goals Book,"Goals are needs of the target organization, which the system will address.",false
-G.1,Context and overall objective,"High-level view of the project: organizational context and reason for building a system.",true
-G.2,Current situation,"Current state of processes to be addressed by the project and the resulting system.",false
-G.3,Expected benefits,"New processes, or improvement to existing processes, made possible by the project’s results.",true
-G.4,Functionality overview,"Overview of the functions (behavior) of the system. Principal properties only.",false
-G.5,High-level usage scenarios,"Fundamental usage paths through the system.",false
-G.6,Limitations and exclusions,"Aspects that the system need not address.",false
-G.7,Stakeholders and requirements sources,"Groups of people who can affect the project or be affected by it.",true
-E,Environment Book,"The Environment book describes the application domain and the environment in which the system will operate.",false
-E.1,Glossary,"Definitions of terms used in the project.",false
-E.2,Components,"Description of the components of the environment.",false
-E.3,Constraints,"Constraints imposed on the system by the environment.",true
-E.4,Assumptions,"Assumptions about the environment.",false
-E.5,Effects,"Effects of the system on the environment.",false
-E.6,Invariants,"Properties of the environment that must be preserved.",false
-P,Project Book,"The Project book describes the project management aspects.",false
-P.1,Roles and personnel,"Roles and personnel involved in the project.",false
-P.2,Tools and techniques,"Tools and techniques used in the project.",false
-P.3,Project management,"Project management aspects.",true
-P.4,Validation,"Validation aspects.",true
-P.5,Verification,"Verification aspects.",false
-P.6,Configuration management,"Configuration management aspects.",false
-P.7,Documentation,"Documentation aspects.",false
-S,System Book,"The System book refines the Goal one by focusing on more detailed requirements.",false
-S.1,Components,"Overall structure expressed by the list of major software and hardware parts.",true
-S.2,Functionality,"One section for each of the components identified above, describing the corresponding behaviors.",true
-S.3,Interfaces,"How the system makes the functionality available to the rest of the world (UI/API).",false
-S.4,Detailed usage scenarios,"Examples of interaction between the environment and the system: use cases, user stories.",false
-S.5,Prioritization,"Classification of the behaviors, interfaces and scenarios by their degree of criticality.",false
-S.6,Verification and acceptance criteria,"Specification of the conditions under which an implementation will be deemed satisfactory.",false
+id,type,title,description,required
+G,Part,Goals Book,"Goals are needs of the target organization, which the system will address.",false
+G.1,Section,Context and overall objective,"High-level view of the project: organizational context and reason for building a system.",true
+G.2,Section,Current situation,"Current state of processes to be addressed by the project and the resulting system.",false
+G.3,Section,Expected benefits,"New processes, or improvement to existing processes, made possible by the project’s results.",true
+G.4,Section,Functionality overview,"Overview of the functions (behavior) of the system. Principal properties only.",false
+G.5,Section,High-level usage scenarios,"Fundamental usage paths through the system.",false
+G.6,Section,Limitations and exclusions,"Aspects that the system need not address.",false
+G.7,Section,Stakeholders and requirements sources,"Groups of people who can affect the project or be affected by it.",true
+E,Part,Environment Book,"The Environment book describes the application domain and the environment in which the system will operate.",false
+E.1,Section,Glossary,"Definitions of terms used in the project.",false
+E.2,Section,Components,"Description of the components of the environment.",false
+E.3,Section,Constraints,"Constraints imposed on the system by the environment.",true
+E.4,Section,Assumptions,"Assumptions about the environment.",false
+E.5,Section,Effects,"Effects of the system on the environment.",false
+E.6,Section,Invariants,"Properties of the environment that must be preserved.",false
+P,Part,Project Book,"The Project book describes the project management aspects.",false
+P.1,Section,Roles and personnel,"Roles and personnel involved in the project.",false
+P.2,Section,Tools and techniques,"Tools and techniques used in the project.",false
+P.3,Section,Project management,"Project management aspects.",true
+P.4,Section,Validation,"Validation aspects.",true
+P.5,Section,Verification,"Verification aspects.",false
+P.6,Section,Configuration management,"Configuration management aspects.",false
+P.7,Section,Documentation,"Documentation aspects.",false
+S,Part,System Book,"The System book refines the Goal one by focusing on more detailed requirements.",false
+S.1,Section,Components,"Overall structure expressed by the list of major software and hardware parts.",true
+S.2,Section,Functionality,"One section for each of the components identified above, describing the corresponding behaviors.",true
+S.3,Section,Interfaces,"How the system makes the functionality available to the rest of the world (UI/API).",false
+S.4,Section,Detailed usage scenarios,"Examples of interaction between the environment and the system: use cases, user stories.",false
+S.5,Section,Prioritization,"Classification of the behaviors, interfaces and scenarios by their degree of criticality.",false
+S.6,Section,Verification and acceptance criteria,"Specification of the conditions under which an implementation will be deemed satisfactory.",false
