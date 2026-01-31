@@ -6,7 +6,7 @@ import * as core from '@actions/core';
 
 export async function parseRequirements(filePath: string, structure: Structure): Promise<ParsedRequirements> {
     const requirements: Requirement[] = [];
-    const books = new Set<string>();
+    const parts = new Set<string>();
 
     const parser = fs.createReadStream(filePath).pipe(
         parse({
@@ -27,33 +27,33 @@ export async function parseRequirements(filePath: string, structure: Structure):
 
         const id = record['id'];
 
-        // Infer Book and Chapter from ID
-        // ID format: G.1.1 -> Book: G, Chapter: G.1
-        const parts = id.split('.');
-        if (parts.length < 2) {
-            core.warning(`Skipping row with invalid ID format (cannot infer Book/Chapter): ${id}. Expected format X.Y...`);
+        // Infer Part and Section from ID
+        // ID format: G.1.1 -> Part: G, Section: G.1
+        const idParts = id.split('.');
+        if (idParts.length < 2) {
+            core.warning(`Skipping row with invalid ID format (cannot infer Part/Section): ${id}. Expected format X.Y...`);
             continue;
         }
 
-        const bookId = parts[0];
-        const chapterId = `${parts[0]}.${parts[1]}`;
+        const partId = idParts[0];
+        const sectionId = `${idParts[0]}.${idParts[1]}`;
 
-        const bookNode = structure.bookMap.get(bookId);
-        const chapterNode = structure.bookMap.get(chapterId);
+        const partNode = structure.partMap.get(partId);
+        const sectionNode = structure.partMap.get(sectionId); // We store both in partMap (ID -> Node)
 
-        if (!bookNode) {
-            core.warning(`Skipping row: Book ID '${bookId}' not found in structure.`);
+        if (!partNode) {
+            core.warning(`Skipping row: Part ID '${partId}' not found in structure.`);
             continue;
         }
-        if (!chapterNode) {
-            core.warning(`Skipping row: Chapter ID '${chapterId}' not found in structure.`);
+        if (!sectionNode) {
+            core.warning(`Skipping row: Section ID '${sectionId}' not found in structure.`);
             continue;
         }
 
         const req: Requirement = {
             id: id,
-            book: bookNode.title,
-            chapter: chapterNode.title,
+            part: partNode.title, // Renamed from book
+            section: sectionNode.title, // Renamed from chapter
             description: record['description'],
             priority: record['priority'],
             parent: record['parent'],
@@ -62,8 +62,8 @@ export async function parseRequirements(filePath: string, structure: Structure):
         };
 
         requirements.push(req);
-        books.add(req.book);
+        parts.add(req.part);
     }
 
-    return { requirements, books };
+    return { requirements, parts };
 }

@@ -3,15 +3,16 @@ import { parse } from 'csv-parse/sync';
 
 export interface StructureNode {
     id: string;      // e.g., "G", "G.1"
+    type: 'Part' | 'Section'; // New field for hierarchy determination
     title: string;
     description: string;
-    required: boolean; // New field
+    required: boolean;
     children: StructureNode[];
 }
 
 export interface Structure {
-    books: StructureNode[];
-    bookMap: Map<string, StructureNode>; // Map ID -> Node
+    parts: StructureNode[]; // Renamed from 'books' to avoid confusion, though interface structure is same
+    partMap: Map<string, StructureNode>; // Map ID -> Node
 }
 
 export function loadStructure(filePath: string): Structure {
@@ -26,20 +27,26 @@ export function loadStructure(filePath: string): Structure {
         trim: true,
         cast: (value, context) => {
             if (context.column === 'required') {
-                // Handle boolean string or empty
                 return value.toLowerCase() === 'true';
             }
             return value;
         }
-    }) as { id: string; title: string; description: string; required: any }[];
+    }) as { id: string; type: string; title: string; description: string; required: any }[];
 
     const rootNodes: StructureNode[] = [];
     const nodeMap = new Map<string, StructureNode>();
 
     // First pass: Create all nodes
     for (const record of records) {
+        // Validate type
+        const type = record.type as 'Part' | 'Section';
+        if (type !== 'Part' && type !== 'Section') {
+            console.warn(`Warning: Unknown type '${record.type}' for ID ${record.id}. Defaulting to Section if it has dots, Part otherwise.`);
+        }
+
         const node: StructureNode = {
             id: record.id,
+            type: type,
             title: record.title,
             description: record.description,
             required: !!record.required,
@@ -48,36 +55,31 @@ export function loadStructure(filePath: string): Structure {
         nodeMap.set(record.id, node);
     }
 
-    // Second pass: Build hierarchy
-    // PEGS hierarchy is flat-ish: Book -> Chapter.
-    // IDs: "G" (Book), "G.1" (Chapter)
-
-    // Sort keys to ensure parents processed before children if we were strictly hierarchical,
-    // but here we just map based on ID pattern.
-
+    // Second pass: Build hierarchy based on 'type'
     for (const node of nodeMap.values()) {
-        if (node.id.includes('.')) {
-            // It's likely a chapter (e.g. G.1)
-            const parts = node.id.split('.');
-            const parentId = parts[0]; // e.g. G
-
-            const parent = nodeMap.get(parentId);
-            if (parent) {
-                parent.children.push(node);
-            } else {
-                // Orphan chapter or malformed ID? 
-                // For now, treat as root or throw? 
-                // Let's assume valid PEGS structure for now.
-                console.warn(`Warning: Chapter ${node.id} has no parent book ${parentId}`);
-            }
-        } else {
-            // It's a book (e.g. G)
+        if (node.type === 'Part') {
             rootNodes.push(node);
+        } else {
+            // It is a Section, find its parent Part
+            // Currently we still rely on ID pattern to find the parent ID
+            // e.g. G.1 -> parent is G
+            if (node.id.includes('.')) {
+                const parts = node.id.split('.');
+                const parentId = parts[0];
+                const parent = nodeMap.get(parentId);
+                if (parent) {
+                    parent.children.push(node);
+                } else {
+                    console.warn(`Warning: Section ${node.id} has no parent Part ${parentId}`);
+                }
+            } else {
+                console.warn(`Warning: Section ${node.id} has no parent indicator in ID`);
+            }
         }
     }
 
     return {
-        books: rootNodes,
-        bookMap: nodeMap
+        parts: rootNodes,
+        partMap: nodeMap
     };
 }

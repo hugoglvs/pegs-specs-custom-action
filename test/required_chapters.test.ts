@@ -4,50 +4,50 @@ import { Requirement } from '../src/types';
 
 describe('Required Chapters Validation', () => {
     const mockStructure: Structure = {
-        books: [
+        parts: [
             {
-                id: 'G', title: 'Goals Book', description: 'desc', required: false, children: [
-                    { id: 'G.1', title: 'Context', description: 'desc', required: true, children: [] }, // Required
-                    { id: 'G.2', title: 'Current', description: 'desc', required: false, children: [] }  // Not Required
+                id: 'G', type: 'Part', title: 'Goals Book', description: 'desc', required: false, children: [
+                    { id: 'G.1', type: 'Section', title: 'Context', description: 'desc', required: true, children: [] }, // Required
+                    { id: 'G.2', type: 'Section', title: 'Current', description: 'desc', required: false, children: [] }  // Not Required
                 ]
             }
         ],
-        bookMap: new Map() // Populate if needed by other checks, but required validation iterates books array
+        partMap: new Map() // Populate if needed by other checks, but required validation iterates parts array
     };
-    // Populate bookMap minimal for other checks to pass/skip
-    mockStructure.bookMap.set('G', mockStructure.books[0]);
-    mockStructure.bookMap.set('G.1', mockStructure.books[0].children[0]);
-    mockStructure.bookMap.set('G.2', mockStructure.books[0].children[1]);
+    // Populate partMap minimal for other checks to pass/skip
+    mockStructure.partMap.set('G', mockStructure.parts[0]);
+    mockStructure.partMap.set('G.1', mockStructure.parts[0].children[0]);
+    mockStructure.partMap.set('G.2', mockStructure.parts[0].children[1]);
 
     const validator = new RequirementValidator();
 
-    it('should fail if a required chapter is empty', () => {
+    it('should fail if a required section is empty', () => {
         const requirements: Requirement[] = []; // No requirements
         const result = validator.validate(requirements, mockStructure);
 
         expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('Missing requirements for required chapter/book: Context (G.1)');
+        expect(result.errors).toContain('Missing requirements for required section/part: Context (G.1)');
     });
 
-    it('should pass if required chapter has requirements', () => {
+    it('should pass if required section has requirements', () => {
         const requirements: Requirement[] = [
-            { id: 'G.1.1', book: 'Goals Book', chapter: 'Context', description: 'd', priority: 'High' }
+            { id: 'G.1.1', part: 'Goals Book', section: 'Context', description: 'd', priority: 'High' }
         ];
         const result = validator.validate(requirements, mockStructure);
 
         // It might fail other checks (like parent existence if not mocked properly), 
         // but we specifically check for the Missing requirements error NOT being there.
         // Or ensure minimal validity.
-        // G.1.1 is valid ID. Book 'Goals Book' matches. Chapter 'Context' matches (if we set up index).
+        // G.1.1 is valid ID. Part 'Goals Book' matches. Section 'Context' matches (if we set up index).
         // Let's rely on specific error check.
 
-        const missingError = result.errors.find(e => e.includes('Missing requirements for required chapter/book'));
+        const missingError = result.errors.find(e => e.includes('Missing requirements for required section/part'));
         expect(missingError).toBeUndefined();
     });
 
-    it('should pass if non-required chapter is empty', () => {
+    it('should pass if non-required section is empty', () => {
         const requirements: Requirement[] = [
-            { id: 'G.1.1', book: 'Goals Book', chapter: 'Context', description: 'd', priority: 'High' }
+            { id: 'G.1.1', part: 'Goals Book', section: 'Context', description: 'd', priority: 'High' }
         ];
         // G.2 is empty, but required=false. Should not error for G.2.
         const result = validator.validate(requirements, mockStructure);

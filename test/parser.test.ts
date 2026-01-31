@@ -4,19 +4,20 @@ import * as path from 'path';
 
 describe('Parser', () => {
     // Mock Structure matching PEGS
+    // Mock Structure matching PEGS
     const mockStructure: Structure = {
-        books: [
+        parts: [
             {
-                id: 'G', title: 'Goals Book', description: 'desc', children: [
-                    { id: 'G.1', title: 'Context', description: 'desc', children: [] },
-                    { id: 'G.2', title: 'Current', description: 'desc', children: [] }
+                id: 'G', type: 'Part', title: 'Goals Book', description: 'desc', required: false, children: [
+                    { id: 'G.1', type: 'Section', title: 'Context', description: 'desc', required: false, children: [] },
+                    { id: 'G.2', type: 'Section', title: 'Current', description: 'desc', required: false, children: [] }
                 ]
             }
         ],
-        bookMap: new Map([
-            ['G', { id: 'G', title: 'Goals Book', description: 'desc', children: [] }],
-            ['G.1', { id: 'G.1', title: 'Context', description: 'desc', children: [] }],
-            ['G.2', { id: 'G.2', title: 'Current', description: 'desc', children: [] }]
+        partMap: new Map([
+            ['G', { id: 'G', type: 'Part', title: 'Goals Book', description: 'desc', required: false, children: [] }],
+            ['G.1', { id: 'G.1', type: 'Section', title: 'Context', description: 'desc', required: false, children: [] }],
+            ['G.2', { id: 'G.2', type: 'Section', title: 'Current', description: 'desc', required: false, children: [] }]
         ])
     };
 
@@ -47,20 +48,20 @@ describe('Parser', () => {
         if (fs.existsSync(testCsvPath)) fs.unlinkSync(testCsvPath);
     });
 
-    it('should infer Book and Chapter from ID', async () => {
+    it('should infer Part and Section from ID', async () => {
         const result = await parseRequirements(testCsvPath, mockStructure);
 
         expect(result.requirements).toHaveLength(2);
 
         const r1 = result.requirements[0];
         expect(r1.id).toBe('G.1.1');
-        expect(r1.book).toBe('Goals Book');
-        expect(r1.chapter).toBe('Context');
+        expect(r1.part).toBe('Goals Book');
+        expect(r1.section).toBe('Context');
 
         const r2 = result.requirements[1];
         expect(r2.id).toBe('G.2.1');
-        expect(r2.book).toBe('Goals Book');
-        expect(r2.chapter).toBe('Current');
+        expect(r2.part).toBe('Goals Book');
+        expect(r2.section).toBe('Current');
     });
 
     it('should skip rows with unknown ID prefixes', async () => {
