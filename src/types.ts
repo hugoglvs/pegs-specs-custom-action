@@ -1,7 +1,7 @@
 export interface Requirement {
     id: string;
-    book: string;
-    chapter: string;
+    part: string;    // Renamed from book
+    section: string; // Renamed from chapter
     description: string;
     priority?: string; // "priority" column (MSCW)
     parent?: string; // "parent" column (ID of parent requirement)
@@ -12,5 +12,5 @@ export interface Requirement {
 
 export interface ParsedRequirements {
     requirements: Requirement[];
-    books: Set<string>; // Unique books found
+    parts: Set<string>; // Renamed from books
 }

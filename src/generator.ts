@@ -21,59 +21,58 @@ export class AdocGenerator {
 
         const generatedFiles = new Map<string, string>();
 
-        // Index requirements by Book then Chapter for easy lookup
-        // Use ID prefixes to match structure if possible, but req has explicit strings.
-        // We'll map structure title -> req.book? 
-        // Better: We iterate the STRUCTURE. For each book in structure, we find matching reqs.
+        // Index requirements by Part then Section for easy lookup
+        // We'll map structure title -> req.part? 
+        // Better: We iterate the STRUCTURE. For each part in structure, we find matching reqs.
 
-        // Group reqs by Book Name (normalized)
-        const reqsByBookKey = new Map<string, Requirement[]>();
+        // Group reqs by Part Name (normalized)
+        const reqsByPartKey = new Map<string, Requirement[]>();
         for (const req of data.requirements) {
-            const key = req.book.toLowerCase().trim();
-            if (!reqsByBookKey.has(key)) reqsByBookKey.set(key, []);
-            reqsByBookKey.get(key)?.push(req);
+            const key = req.part.toLowerCase().trim();
+            if (!reqsByPartKey.has(key)) reqsByPartKey.set(key, []);
+            reqsByPartKey.get(key)?.push(req);
         }
 
-        for (const bookNode of structure.books) {
-            const fileName = await this.generateBookFromStructure(bookNode, reqsByBookKey);
-            generatedFiles.set(bookNode.title, fileName);
+        for (const partNode of structure.parts) {
+            const fileName = await this.generatePartFromStructure(partNode, reqsByPartKey);
+            generatedFiles.set(partNode.title, fileName);
         }
 
         return generatedFiles;
     }
 
-    private async generateBookFromStructure(bookNode: StructureNode, reqsByBookKey: Map<string, Requirement[]>): Promise<string> {
-        let content = `= ${bookNode.title}\n:toc:\n\n`;
-        content += `${bookNode.description}\n\n`;
+    private async generatePartFromStructure(partNode: StructureNode, reqsByPartKey: Map<string, Requirement[]>): Promise<string> {
+        let content = `= ${partNode.title}\n:toc:\n\n`;
+        content += `${partNode.description}\n\n`;
 
-        // Get requirements for this book
-        const bookReqs = reqsByBookKey.get(bookNode.title.toLowerCase().trim()) || [];
+        // Get requirements for this part
+        const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
 
-        // Group by Chapter
-        const reqsByChapterKey = new Map<string, Requirement[]>();
-        for (const req of bookReqs) {
-            const cKey = req.chapter.toLowerCase().trim();
-            if (!reqsByChapterKey.has(cKey)) reqsByChapterKey.set(cKey, []);
-            reqsByChapterKey.get(cKey)?.push(req);
+        // Group by Section
+        const reqsBySectionKey = new Map<string, Requirement[]>();
+        for (const req of partReqs) {
+            const cKey = req.section.toLowerCase().trim();
+            if (!reqsBySectionKey.has(cKey)) reqsBySectionKey.set(cKey, []);
+            reqsBySectionKey.get(cKey)?.push(req);
         }
 
-        for (const chapterNode of bookNode.children) {
-            content += `== ${chapterNode.id} ${chapterNode.title}\n`;
-            content += `${chapterNode.description}\n\n`;
+        for (const sectionNode of partNode.children) {
+            content += `== ${sectionNode.id} ${sectionNode.title}\n`;
+            content += `${sectionNode.description}\n\n`;
 
-            const chapterReqs = reqsByChapterKey.get(chapterNode.title.toLowerCase().trim());
+            const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
 
-            if (chapterReqs && chapterReqs.length > 0) {
-                content += this.generateChapterContent(chapterReqs) + '\n';
+            if (sectionReqs && sectionReqs.length > 0) {
+                content += this.generateSectionContent(sectionReqs) + '\n';
             } else {
-                content += `_No requirements for this chapter._\n\n`;
+                content += `_No requirements for this section._\n\n`;
             }
         }
 
         // Clean filename: "Goals Book" -> "goals.adoc"
         // Try to keep consistent with old naming if possible, default to sanitized title
-        let baseName = bookNode.title.toLowerCase().split(' ')[0]; // "goals"
-        if (baseName.length < 3) baseName = bookNode.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        let baseName = partNode.title.toLowerCase().split(' ')[0]; // "goals"
+        if (baseName.length < 3) baseName = partNode.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
         const fileName = `${baseName}.adoc`;
         await fs.promises.writeFile(path.join(this.outputDir, fileName), content);
@@ -81,7 +80,7 @@ export class AdocGenerator {
     }
 
 
-    private generateChapterContent(reqs: Requirement[]): string {
+    private generateSectionContent(reqs: Requirement[]): string {
         // Build hierarchy first
         const roots = this.buildHierarchy(reqs);
         return this.renderRequirements(roots, 3); // Start at level 3 (===)
@@ -104,7 +103,7 @@ export class AdocGenerator {
                 const parent = reqMap.get(req.parent);
                 parent?.children?.push(req);
             } else {
-                // It's a root (no parent, or parent not in this chapter context)
+                // It's a root (no parent, or parent not in this section context)
                 roots.push(req);
             }
         });
@@ -134,7 +133,7 @@ export class AdocGenerator {
             }
 
             content += `[#${req.id}]\n`;
-            // Only add separator if it's a top-level requirement relative to the chapter
+            // Only add separator if it's a top-level requirement relative to the section
             if (level === 3) {
                 content += `---\n\n`;
             } else {

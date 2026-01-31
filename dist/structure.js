@@ -47,7 +47,6 @@ function loadStructure(filePath) {
         trim: true,
         cast: (value, context) => {
             if (context.column === 'required') {
-                // Handle boolean string or empty
                 return value.toLowerCase() === 'true';
             }
             return value;
@@ -57,8 +56,14 @@ function loadStructure(filePath) {
     const nodeMap = new Map();
     // First pass: Create all nodes
     for (const record of records) {
+        // Validate type
+        const type = record.type;
+        if (type !== 'Part' && type !== 'Section') {
+            console.warn(`Warning: Unknown type '${record.type}' for ID ${record.id}. Defaulting to Section if it has dots, Part otherwise.`);
+        }
         const node = {
             id: record.id,
+            type: type,
             title: record.title,
             description: record.description,
             required: !!record.required,
@@ -66,34 +71,33 @@ function loadStructure(filePath) {
         };
         nodeMap.set(record.id, node);
     }
-    // Second pass: Build hierarchy
-    // PEGS hierarchy is flat-ish: Book -> Chapter.
-    // IDs: "G" (Book), "G.1" (Chapter)
-    // Sort keys to ensure parents processed before children if we were strictly hierarchical,
-    // but here we just map based on ID pattern.
+    // Second pass: Build hierarchy based on 'type'
     for (const node of nodeMap.values()) {
-        if (node.id.includes('.')) {
-            // It's likely a chapter (e.g. G.1)
-            const parts = node.id.split('.');
-            const parentId = parts[0]; // e.g. G
-            const parent = nodeMap.get(parentId);
-            if (parent) {
-                parent.children.push(node);
-            }
-            else {
-                // Orphan chapter or malformed ID? 
-                // For now, treat as root or throw? 
-                // Let's assume valid PEGS structure for now.
-                console.warn(`Warning: Chapter ${node.id} has no parent book ${parentId}`);
-            }
+        if (node.type === 'Part') {
+            rootNodes.push(node);
         }
         else {
-            // It's a book (e.g. G)
-            rootNodes.push(node);
+            // It is a Section, find its parent Part
+            // Currently we still rely on ID pattern to find the parent ID
+            // e.g. G.1 -> parent is G
+            if (node.id.includes('.')) {
+                const parts = node.id.split('.');
+                const parentId = parts[0];
+                const parent = nodeMap.get(parentId);
+                if (parent) {
+                    parent.children.push(node);
+                }
+                else {
+                    console.warn(`Warning: Section ${node.id} has no parent Part ${parentId}`);
+                }
+            }
+            else {
+                console.warn(`Warning: Section ${node.id} has no parent indicator in ID`);
+            }
         }
     }
     return {
-        books: rootNodes,
-        bookMap: nodeMap
+        parts: rootNodes,
+        partMap: nodeMap
     };
 }
