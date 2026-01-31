@@ -12,6 +12,52 @@ A GitHub Action to generate professional Project specifications (requirements) d
 -   **Strict Validation**: Validates ID formats, parent-child consistency, and ensures that "Required" sections are not empty.
 -   **Visual Assets**: Integrated PlantUML support and image handling with automatic figure numbering and custom captions.
 
+## How to Set Up
+
+### 1. Create Configuration Files
+Establish the mandatory CSV files in your repository root (or custom paths):
+
+**`structure.csv`**: Defines your document's parts and sections.
+```csv
+id,type,title,description,required
+G,Part,Goals Book,Needs of the target organization,false
+G.1,Section,Context,Organizational context,true
+```
+
+**`requirements.csv`**: Contains your requirements data.
+```csv
+id,description,priority
+G.1.1,The action shall generate a PDF from CSV.,Must
+```
+
+### 2. Configure GitHub Workflow
+Create `.github/workflows/specs.yml` to automate the generation:
+
+```yaml
+name: Generate Specifications
+on: [push]
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for changelog generation
+
+      - name: Generate PEGS PDF
+        uses: hugoglvs/pegs-specs-custom-action@v1
+        with:
+          project-name: "My Awesome Project"
+
+      - name: Archive PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: specification-pdf
+          path: dist/full-specs.pdf
+```
+
 ## Inputs
 
 | Input | Description | Required | Default |
