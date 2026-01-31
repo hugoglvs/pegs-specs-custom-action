@@ -22,7 +22,7 @@ async function run(): Promise<void> {
     core.info(`Reading requirements from ${requirementsPath}`);
     const data = await parseRequirements(requirementsPath, structure);
 
-    core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
+    core.info(`Found ${data.requirements.length} requirements across ${data.parts.size} parts.`);
 
     // Validate Requirements
     core.info('Validating requirements ID and structure...');
@@ -42,7 +42,7 @@ async function run(): Promise<void> {
 
     core.info(`Generating AsciiDoc files in ${outputDir}...`);
     const generator = new AdocGenerator(outputDir, templatesPath);
-    // Generate books based on structure (returns Map<BookTitle, FileName>)
+    // Generate parts based on structure (returns Map<PartTitle, FileName>)
     const generatedFilesMap = await generator.generate(data, structure);
 
     // Install dependencies
@@ -107,14 +107,14 @@ async function run(): Promise<void> {
     }
     masterContent += '\n\n<<<\n\n';
 
-    // List of books to include in the order they will appear
-    const finalBookSequence: { type: string, file: string, title: string }[] = [];
+    // List of parts to include in the order they will appear
+    const finalPartSequence: { type: string, file: string, title: string }[] = [];
 
     // Iterate structure to define order
-    for (const bookNode of structure.books) {
-      const fileName = generatedFilesMap.get(bookNode.title);
+    for (const partNode of structure.parts) {
+      const fileName = generatedFilesMap.get(partNode.title);
       if (fileName) {
-        finalBookSequence.push({ type: bookNode.title, file: fileName, title: bookNode.title });
+        finalPartSequence.push({ type: partNode.title, file: fileName, title: partNode.title });
       }
     }
 
@@ -126,7 +126,7 @@ async function run(): Promise<void> {
         const changelogContent = generateChangelogAdoc(changelogEntries);
         const changelogFile = 'changelog.adoc';
         await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
-        finalBookSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
+        finalPartSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
         core.info(`Added Changelog with ${changelogEntries.length} entries.`);
       } else {
         core.info('No tags found for Changelog.');
@@ -136,12 +136,12 @@ async function run(): Promise<void> {
     }
 
 
-    core.info(`Ordered books for generation: ${finalBookSequence.map(b => b.title).join(', ')}`);
+    core.info(`Ordered parts for generation: ${finalPartSequence.map(b => b.title).join(', ')}`);
 
-    for (const book of finalBookSequence) {
+    for (const part of finalPartSequence) {
       // For PDF, we include them
       // We typically need to adjust level offset so they become chapters of the master doc
-      masterContent += `<<<\ninclude::${book.file}[leveloffset=+1]\n\n`;
+      masterContent += `<<<\ninclude::${part.file}[leveloffset=+1]\n\n`;
     }
 
     // Write master adoc

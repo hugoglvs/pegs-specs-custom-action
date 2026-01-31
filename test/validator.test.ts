@@ -17,31 +17,31 @@ describe('RequirementValidator', () => {
 
     // Create a mock structure that mimics the PEGS standard
     const mockStructure: Structure = {
-        books: [
+        parts: [
             {
-                id: 'G', title: 'Goals Book', description: '...', children: [
-                    { id: 'G.1', title: 'Context and overall objective', description: '...', children: [] },
-                    { id: 'G.2', title: 'Current situation', description: '...', children: [] }
+                id: 'G', type: 'Part', title: 'Goals Book', description: '...', required: false, children: [
+                    { id: 'G.1', type: 'Section', title: 'Context and overall objective', description: '...', required: false, children: [] },
+                    { id: 'G.2', type: 'Section', title: 'Current situation', description: '...', required: false, children: [] }
                 ]
             },
             {
-                id: 'S', title: 'System Book', description: '...', children: [
-                    { id: 'S.1', title: 'Components', description: '...', children: [] },
-                    { id: 'S.2', title: 'Functionality', description: '...', children: [] }
+                id: 'S', type: 'Part', title: 'System Book', description: '...', required: false, children: [
+                    { id: 'S.1', type: 'Section', title: 'Components', description: '...', required: false, children: [] },
+                    { id: 'S.2', type: 'Section', title: 'Functionality', description: '...', required: false, children: [] }
                 ]
             },
             {
-                id: 'P', title: 'Project Book', description: '...', children: [
-                    { id: 'P.1', title: 'Roles', description: '...', children: [] }
+                id: 'P', type: 'Part', title: 'Project Book', description: '...', required: false, children: [
+                    { id: 'P.1', type: 'Section', title: 'Roles', description: '...', required: false, children: [] }
                 ]
             },
             {
-                id: 'E', title: 'Environment Book', description: '...', children: [
-                    { id: 'E.1', title: 'Glossary', description: '...', children: [] }
+                id: 'E', type: 'Part', title: 'Environment Book', description: '...', required: false, children: [
+                    { id: 'E.1', type: 'Section', title: 'Glossary', description: '...', required: false, children: [] }
                 ]
             }
         ],
-        bookMap: new Map() // We don't use bookMap in validator currently, only structure.books traversal
+        partMap: new Map() // We don't use partMap in validator currently, only structure.parts traversal
     };
 
     beforeEach(() => {
@@ -59,8 +59,8 @@ describe('RequirementValidator', () => {
         it('should validate a simple correct ID', async () => {
             const reqs: Requirement[] = [{
                 id: 'S.1.1',
-                book: 'System Book',
-                chapter: 'Components',
+                part: 'System Book',
+                section: 'Components',
                 description: 'test'
             }];
             const result = validator.validate(reqs, mockStructure);
@@ -71,13 +71,13 @@ describe('RequirementValidator', () => {
         it('should validate a nested ID consistent with parent', async () => {
             const reqs: Requirement[] = [{
                 id: 'G.1.2',
-                book: 'Goals Book',
-                chapter: 'Context and overall objective',
+                part: 'Goals Book',
+                section: 'Context and overall objective',
                 description: 'parent'
             }, {
                 id: 'G.1.2.1',
-                book: 'Goals Book',
-                chapter: 'Context and overall objective',
+                part: 'Goals Book',
+                section: 'Context and overall objective',
                 parent: 'G.1.2',
                 description: 'test'
             }];
@@ -90,8 +90,8 @@ describe('RequirementValidator', () => {
         it('should warn on deep nesting (> 6 levels)', async () => {
             const reqs: Requirement[] = [{
                 id: 'S.1.2.3.4.5.6.7', // 7 levels
-                book: 'System Book',
-                chapter: 'Components',
+                part: 'System Book',
+                section: 'Components',
                 description: 'deep'
             }];
             const result = validator.validate(reqs, mockStructure);
@@ -105,8 +105,8 @@ describe('RequirementValidator', () => {
         it('should fail on invalid ID format', async () => {
             const reqs: Requirement[] = [{
                 id: 'S-1', // Invalid separator
-                book: 'System Book',
-                chapter: 'Components',
+                part: 'System Book',
+                section: 'Components',
                 description: 'bad'
             }];
             const result = validator.validate(reqs, mockStructure);
@@ -114,11 +114,11 @@ describe('RequirementValidator', () => {
             expect(result.errors[0]).toContain('ID format invalid');
         });
 
-        it('should fail when Book letter mismatches', async () => {
+        it('should fail when Part letter mismatches', async () => {
             const reqs: Requirement[] = [{
                 id: 'G.1.1', // G matches Goals Book, but...
-                book: 'System Book', // ...we say it is System Book (Expect S)
-                chapter: 'Components',
+                part: 'System Book', // ...we say it is System Book (Expect S)
+                section: 'Components',
                 description: 'mismatch'
             }];
             const result = validator.validate(reqs, mockStructure);
@@ -126,11 +126,11 @@ describe('RequirementValidator', () => {
             expect(result.errors[0]).toContain('expected \'S\'');
         });
 
-        it('should fail when Chapter number mismatches', async () => {
+        it('should fail when Section number mismatches', async () => {
             const reqs: Requirement[] = [{
-                id: 'S.2.1', // Indicates chapter 2
-                book: 'System Book',
-                chapter: 'Components', // Mocks say Components is S.1
+                id: 'S.2.1', // Indicates section 2
+                part: 'System Book',
+                section: 'Components', // Mocks say Components is S.1
                 description: 'mismatch'
             }];
             const result = validator.validate(reqs, mockStructure);
@@ -141,14 +141,14 @@ describe('RequirementValidator', () => {
         it('should fail when Parent ID is not a prefix of Child ID', async () => {
             const reqs: Requirement[] = [{
                 id: 'S.1.2',
-                book: 'System Book',
-                chapter: 'Components',
+                part: 'System Book',
+                section: 'Components',
                 parent: 'S.2', // Child S.1.2 is NOT child of S.2
                 description: 'bad parent'
             }, {
                 id: 'S.2', // Dummy parent to satisfy existence check
-                book: 'System Book',
-                chapter: 'Functionality',
+                part: 'System Book',
+                section: 'Functionality',
                 description: 'parent'
             }];
             const result = validator.validate(reqs, mockStructure);
@@ -159,8 +159,8 @@ describe('RequirementValidator', () => {
         it('should fail when Parent requirement does not exist', async () => {
             const reqs: Requirement[] = [{
                 id: 'S.1.2',
-                book: 'System Book',
-                chapter: 'Components',
+                part: 'System Book',
+                section: 'Components',
                 parent: 'S.1', // S.1 is missing from this list
                 description: 'missing parent'
             }];
@@ -172,8 +172,8 @@ describe('RequirementValidator', () => {
         it('should fail when attached file does not exist', async () => {
             const reqs: Requirement[] = [{
                 id: 'S.1.3',
-                book: 'System Book',
-                chapter: 'Components',
+                part: 'System Book',
+                section: 'Components',
                 description: 'missing file',
                 attachedFiles: 'missing.png'
             }];
@@ -185,8 +185,8 @@ describe('RequirementValidator', () => {
         it('should pass when attached file exists', async () => {
             const reqs: Requirement[] = [{
                 id: 'S.1.4',
-                book: 'System Book',
-                chapter: 'Components',
+                part: 'System Book',
+                section: 'Components',
                 description: 'existing file',
                 attachedFiles: 'existing.png'
             }];
