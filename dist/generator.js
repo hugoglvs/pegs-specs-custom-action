@@ -94,22 +94,33 @@ class AdocGenerator {
         let content = '';
         const headerPrefix = '='.repeat(level);
         for (const req of reqs) {
-            content += `${headerPrefix} ${req.id}\n`;
-            if (req.priority) {
-                content += `*Priority*: ${req.priority}\n\n`;
-            }
-            content += `*Description*: ${req.description}\n\n`;
-            if (req.referenceTo) {
-                const refs = req.referenceTo.split(',').map(r => r.trim());
-                const links = refs.map(r => `<<${r}>>`).join(', ');
-                content += `*References*: ${links}\n\n`;
-            }
+            // Updated Requirement Format:
+            // [red]#ID# Description...
+            // Use role for color if supported by theme, or direct color attribute
+            // Asciidoctor PDF supports font color attributes: [red]#text#
+            // User requested "dark red". Let's use a hex code with styling if possible, or a role.
+            // Inline style: [big red]#text#
+            // Let's assume standard asciidoc coloring works. 
+            // `[#8b0000]#${req.id}#` for dark red.
+            content += `${headerPrefix} [red]#${req.id}# ${req.description}\n\n`;
             if (req.attachedFiles) {
                 content += this.handleAttachedFiles(req.attachedFiles, req.id);
             }
+            if (req.priority || req.referenceTo) {
+                content += `[cols="1,4", options="noheader", frame="none", grid="none"]\n|===\n`;
+                if (req.priority) {
+                    content += `|*Priority*: | ${req.priority}\n`;
+                }
+                if (req.referenceTo) {
+                    const refs = req.referenceTo.split(',').map(r => r.trim());
+                    const links = refs.map(r => `<<${r}>>`).join(', ');
+                    content += `|*References*: | ${links}\n`;
+                }
+                content += `|===\n\n`;
+            }
             content += `[#${req.id}]\n`;
             // Only add separator if it's a top-level requirement relative to the section
-            if (level === 3) {
+            if (level === 4) { // Adjusted level check (was 3, now 4 per previous refactor target)
                 content += `---\n\n`;
             }
             else {
