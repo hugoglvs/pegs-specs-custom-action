@@ -25792,58 +25792,55 @@ class AdocGenerator {
         // Ensure output dir exists
         await fs.promises.mkdir(this.outputDir, { recursive: true });
         const generatedFiles = new Map();
-        // Index requirements by Book then Chapter for easy lookup
-        // Use ID prefixes to match structure if possible, but req has explicit strings.
-        // We'll map structure title -> req.book? 
-        // Better: We iterate the STRUCTURE. For each book in structure, we find matching reqs.
-        // Group reqs by Book Name (normalized)
-        const reqsByBookKey = new Map();
+        // Index requirements by Part then Section for easy lookup
+        // We'll map structure title -> req.part? 
+        // Better: We iterate the STRUCTURE. For each part in structure, we find matching reqs.
+        // Group reqs by Part Name (normalized)
+        const reqsByPartKey = new Map();
         for (const req of data.requirements) {
-            const key = req.book.toLowerCase().trim();
-            if (!reqsByBookKey.has(key))
-                reqsByBookKey.set(key, []);
-            reqsByBookKey.get(key)?.push(req);
+            const key = req.part.toLowerCase().trim();
+            if (!reqsByPartKey.has(key))
+                reqsByPartKey.set(key, []);
+            reqsByPartKey.get(key)?.push(req);
         }
-        for (const bookNode of structure.books) {
-            const fileName = await this.generateBookFromStructure(bookNode, reqsByBookKey);
-            generatedFiles.set(bookNode.title, fileName);
+        for (const partNode of structure.parts) {
+            const fileName = await this.generatePartFromStructure(partNode, reqsByPartKey);
+            generatedFiles.set(partNode.title, fileName);
         }
         return generatedFiles;
     }
-    async generateBookFromStructure(bookNode, reqsByBookKey) {
-        let content = `= ${bookNode.title}\n:toc:\n\n`;
-        content += `${bookNode.description}\n\n`;
-        // Get requirements for this book
-        const bookReqs = reqsByBookKey.get(bookNode.title.toLowerCase().trim()) || [];
-        // Group by Chapter
-        const reqsByChapterKey = new Map();
-        for (const req of bookReqs) {
-            const cKey = req.chapter.toLowerCase().trim();
-            if (!reqsByChapterKey.has(cKey))
-                reqsByChapterKey.set(cKey, []);
-            reqsByChapterKey.get(cKey)?.push(req);
+    async generatePartFromStructure(partNode, reqsByPartKey) {
+        let content = `= ${partNode.title}\n:toc:\n\n`;
+        // Get requirements for this part
+        const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
+        // Group by Section
+        const reqsBySectionKey = new Map();
+        for (const req of partReqs) {
+            const cKey = req.section.toLowerCase().trim();
+            if (!reqsBySectionKey.has(cKey))
+                reqsBySectionKey.set(cKey, []);
+            reqsBySectionKey.get(cKey)?.push(req);
         }
-        for (const chapterNode of bookNode.children) {
-            content += `== ${chapterNode.id} ${chapterNode.title}\n`;
-            content += `${chapterNode.description}\n\n`;
-            const chapterReqs = reqsByChapterKey.get(chapterNode.title.toLowerCase().trim());
-            if (chapterReqs && chapterReqs.length > 0) {
-                content += this.generateChapterContent(chapterReqs) + '\n';
+        for (const sectionNode of partNode.children) {
+            content += `== ${sectionNode.id} ${sectionNode.title}\n`;
+            const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
+            if (sectionReqs && sectionReqs.length > 0) {
+                content += this.generateSectionContent(sectionReqs) + '\n';
             }
             else {
-                content += `_No requirements for this chapter._\n\n`;
+                content += `_No requirements for this section._\n\n`;
             }
         }
         // Clean filename: "Goals Book" -> "goals.adoc"
         // Try to keep consistent with old naming if possible, default to sanitized title
-        let baseName = bookNode.title.toLowerCase().split(' ')[0]; // "goals"
+        let baseName = partNode.title.toLowerCase().split(' ')[0]; // "goals"
         if (baseName.length < 3)
-            baseName = bookNode.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            baseName = partNode.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         const fileName = `${baseName}.adoc`;
         await fs.promises.writeFile(path.join(this.outputDir, fileName), content);
         return fileName;
     }
-    generateChapterContent(reqs) {
+    generateSectionContent(reqs) {
         // Build hierarchy first
         const roots = this.buildHierarchy(reqs);
         return this.renderRequirements(roots, 3); // Start at level 3 (===)
@@ -25864,7 +25861,7 @@ class AdocGenerator {
                 parent?.children?.push(req);
             }
             else {
-                // It's a root (no parent, or parent not in this chapter context)
+                // It's a root (no parent, or parent not in this section context)
                 roots.push(req);
             }
         });
@@ -25888,7 +25885,7 @@ class AdocGenerator {
                 content += this.handleAttachedFiles(req.attachedFiles, req.id);
             }
             content += `[#${req.id}]\n`;
-            // Only add separator if it's a top-level requirement relative to the chapter
+            // Only add separator if it's a top-level requirement relative to the section
             if (level === 3) {
                 content += `---\n\n`;
             }
@@ -25987,7 +25984,7 @@ async function run() {
         const structure = (0, structure_1.loadStructure)(structurePath);
         core.info(`Reading requirements from ${requirementsPath}`);
         const data = await (0, parser_1.parseRequirements)(requirementsPath, structure);
-        core.info(`Found ${data.requirements.length} requirements across ${data.books.size} books.`);
+        core.info(`Found ${data.requirements.length} requirements across ${data.parts.size} parts.`);
         // Validate Requirements
         core.info('Validating requirements ID and structure...');
         const validator = new validator_1.RequirementValidator();
@@ -26003,7 +26000,7 @@ async function run() {
         core.info('Validation passed.');
         core.info(`Generating AsciiDoc files in ${outputDir}...`);
         const generator = new generator_1.AdocGenerator(outputDir, templatesPath);
-        // Generate books based on structure (returns Map<BookTitle, FileName>)
+        // Generate parts based on structure (returns Map<PartTitle, FileName>)
         const generatedFilesMap = await generator.generate(data, structure);
         // Install dependencies
         core.startGroup('Installing Asciidoctor dependencies');
@@ -26062,13 +26059,13 @@ async function run() {
             }
         }
         masterContent += '\n\n<<<\n\n';
-        // List of books to include in the order they will appear
-        const finalBookSequence = [];
+        // List of parts to include in the order they will appear
+        const finalPartSequence = [];
         // Iterate structure to define order
-        for (const bookNode of structure.books) {
-            const fileName = generatedFilesMap.get(bookNode.title);
+        for (const partNode of structure.parts) {
+            const fileName = generatedFilesMap.get(partNode.title);
             if (fileName) {
-                finalBookSequence.push({ type: bookNode.title, file: fileName, title: bookNode.title });
+                finalPartSequence.push({ type: partNode.title, file: fileName, title: partNode.title });
             }
         }
         // Append Changelog
@@ -26079,7 +26076,7 @@ async function run() {
                 const changelogContent = (0, changelog_1.generateChangelogAdoc)(changelogEntries);
                 const changelogFile = 'changelog.adoc';
                 await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
-                finalBookSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
+                finalPartSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
                 core.info(`Added Changelog with ${changelogEntries.length} entries.`);
             }
             else {
@@ -26089,11 +26086,11 @@ async function run() {
         catch (err) {
             core.warning(`Failed to generate changelog: ${err}`);
         }
-        core.info(`Ordered books for generation: ${finalBookSequence.map(b => b.title).join(', ')}`);
-        for (const book of finalBookSequence) {
+        core.info(`Ordered parts for generation: ${finalPartSequence.map(b => b.title).join(', ')}`);
+        for (const part of finalPartSequence) {
             // For PDF, we include them
             // We typically need to adjust level offset so they become chapters of the master doc
-            masterContent += `<<<\ninclude::${book.file}[leveloffset=+1]\n\n`;
+            masterContent += `<<<\ninclude::${part.file}[leveloffset=+1]\n\n`;
         }
         // Write master adoc
         await fs.promises.writeFile(masterAdocPath, masterContent);
@@ -26170,7 +26167,7 @@ const csv_parse_1 = __nccwpck_require__(2417);
 const core = __importStar(__nccwpck_require__(7484));
 async function parseRequirements(filePath, structure) {
     const requirements = [];
-    const books = new Set();
+    const parts = new Set();
     const parser = fs_1.default.createReadStream(filePath).pipe((0, csv_parse_1.parse)({
         columns: true,
         trim: true,
@@ -26184,29 +26181,29 @@ async function parseRequirements(filePath, structure) {
             continue;
         }
         const id = record['id'];
-        // Infer Book and Chapter from ID
-        // ID format: G.1.1 -> Book: G, Chapter: G.1
-        const parts = id.split('.');
-        if (parts.length < 2) {
-            core.warning(`Skipping row with invalid ID format (cannot infer Book/Chapter): ${id}. Expected format X.Y...`);
+        // Infer Part and Section from ID
+        // ID format: G.1.1 -> Part: G, Section: G.1
+        const idParts = id.split('.');
+        if (idParts.length < 2) {
+            core.warning(`Skipping row with invalid ID format (cannot infer Part/Section): ${id}. Expected format X.Y...`);
             continue;
         }
-        const bookId = parts[0];
-        const chapterId = `${parts[0]}.${parts[1]}`;
-        const bookNode = structure.bookMap.get(bookId);
-        const chapterNode = structure.bookMap.get(chapterId);
-        if (!bookNode) {
-            core.warning(`Skipping row: Book ID '${bookId}' not found in structure.`);
+        const partId = idParts[0];
+        const sectionId = `${idParts[0]}.${idParts[1]}`;
+        const partNode = structure.partMap.get(partId);
+        const sectionNode = structure.partMap.get(sectionId); // We store both in partMap (ID -> Node)
+        if (!partNode) {
+            core.warning(`Skipping row: Part ID '${partId}' not found in structure.`);
             continue;
         }
-        if (!chapterNode) {
-            core.warning(`Skipping row: Chapter ID '${chapterId}' not found in structure.`);
+        if (!sectionNode) {
+            core.warning(`Skipping row: Section ID '${sectionId}' not found in structure.`);
             continue;
         }
         const req = {
             id: id,
-            book: bookNode.title,
-            chapter: chapterNode.title,
+            part: partNode.title, // Renamed from book
+            section: sectionNode.title, // Renamed from chapter
             description: record['description'],
             priority: record['priority'],
             parent: record['parent'],
@@ -26214,9 +26211,9 @@ async function parseRequirements(filePath, structure) {
             attachedFiles: record['attached files'] || record['attached_files'],
         };
         requirements.push(req);
-        books.add(req.book);
+        parts.add(req.part);
     }
-    return { requirements, books };
+    return { requirements, parts };
 }
 
 
@@ -26275,7 +26272,6 @@ function loadStructure(filePath) {
         trim: true,
         cast: (value, context) => {
             if (context.column === 'required') {
-                // Handle boolean string or empty
                 return value.toLowerCase() === 'true';
             }
             return value;
@@ -26285,8 +26281,14 @@ function loadStructure(filePath) {
     const nodeMap = new Map();
     // First pass: Create all nodes
     for (const record of records) {
+        // Validate type
+        const type = record.type;
+        if (type !== 'Part' && type !== 'Section') {
+            console.warn(`Warning: Unknown type '${record.type}' for ID ${record.id}. Defaulting to Section if it has dots, Part otherwise.`);
+        }
         const node = {
             id: record.id,
+            type: type,
             title: record.title,
             description: record.description,
             required: !!record.required,
@@ -26294,35 +26296,34 @@ function loadStructure(filePath) {
         };
         nodeMap.set(record.id, node);
     }
-    // Second pass: Build hierarchy
-    // PEGS hierarchy is flat-ish: Book -> Chapter.
-    // IDs: "G" (Book), "G.1" (Chapter)
-    // Sort keys to ensure parents processed before children if we were strictly hierarchical,
-    // but here we just map based on ID pattern.
+    // Second pass: Build hierarchy based on 'type'
     for (const node of nodeMap.values()) {
-        if (node.id.includes('.')) {
-            // It's likely a chapter (e.g. G.1)
-            const parts = node.id.split('.');
-            const parentId = parts[0]; // e.g. G
-            const parent = nodeMap.get(parentId);
-            if (parent) {
-                parent.children.push(node);
-            }
-            else {
-                // Orphan chapter or malformed ID? 
-                // For now, treat as root or throw? 
-                // Let's assume valid PEGS structure for now.
-                console.warn(`Warning: Chapter ${node.id} has no parent book ${parentId}`);
-            }
+        if (node.type === 'Part') {
+            rootNodes.push(node);
         }
         else {
-            // It's a book (e.g. G)
-            rootNodes.push(node);
+            // It is a Section, find its parent Part
+            // Currently we still rely on ID pattern to find the parent ID
+            // e.g. G.1 -> parent is G
+            if (node.id.includes('.')) {
+                const parts = node.id.split('.');
+                const parentId = parts[0];
+                const parent = nodeMap.get(parentId);
+                if (parent) {
+                    parent.children.push(node);
+                }
+                else {
+                    console.warn(`Warning: Section ${node.id} has no parent Part ${parentId}`);
+                }
+            }
+            else {
+                console.warn(`Warning: Section ${node.id} has no parent indicator in ID`);
+            }
         }
     }
     return {
-        books: rootNodes,
-        bookMap: nodeMap
+        parts: rootNodes,
+        partMap: nodeMap
     };
 }
 
@@ -26372,12 +26373,12 @@ exports.RequirementValidator = void 0;
 const fs = __importStar(__nccwpck_require__(9896));
 class RequirementValidator {
     constructor() {
-        this.bookChapterIndex = new Map();
-        this.bookPrefixMap = new Map();
+        this.partSectionIndex = new Map();
+        this.partPrefixMap = new Map();
     }
     validate(requirements, structure) {
         const result = { isValid: true, errors: [], warnings: [] };
-        this.buildChapterIndex(structure);
+        this.buildSectionIndex(structure);
         // Build set of valid IDs for referential integrity
         const validIds = new Set(requirements.map(r => r.id));
         for (const req of requirements) {
@@ -26386,23 +26387,23 @@ class RequirementValidator {
             this.validateParentExistence(req, validIds, result);
             this.validateAttachedFiles(req, result);
         }
-        this.validateRequiredChapters(requirements, structure, result);
+        this.validateRequiredSections(requirements, structure, result);
         return result;
     }
-    buildChapterIndex(structure) {
-        for (const bookNode of structure.books) {
-            // Map Book Name -> ID Prefix (e.g. "Goals Book" -> "G")
-            this.bookPrefixMap.set(bookNode.title, bookNode.id);
-            const chapterMap = new Map();
-            for (const chapterNode of bookNode.children) {
+    buildSectionIndex(structure) {
+        for (const partNode of structure.parts) {
+            // Map Part Name -> ID Prefix (e.g. "Goals Book" -> "G")
+            this.partPrefixMap.set(partNode.title, partNode.id);
+            const sectionMap = new Map();
+            for (const sectionNode of partNode.children) {
                 // ID: G.1 -> Number: 1
-                const parts = chapterNode.id.split('.');
+                const parts = sectionNode.id.split('.');
                 if (parts.length >= 2) {
                     const num = parseInt(parts[1], 10);
-                    chapterMap.set(chapterNode.title.toLowerCase().trim(), num);
+                    sectionMap.set(sectionNode.title.toLowerCase().trim(), num);
                 }
             }
-            this.bookChapterIndex.set(bookNode.title, chapterMap);
+            this.partSectionIndex.set(partNode.title, sectionMap);
         }
     }
     validateIDFormat(req, result) {
@@ -26410,26 +26411,26 @@ class RequirementValidator {
         // e.g. G.1.2 or G.3.1.2.5
         const idPattern = /^[GEPS]\.\d+(\.\d+)*$/;
         if (!idPattern.test(req.id)) {
-            result.errors.push(`Requirement ${req.id}: ID format invalid. Must be <Letter>.<Chapter>.<ID> (e.g., G.1.1).`);
+            result.errors.push(`Requirement ${req.id}: ID format invalid. Must be <Letter>.<Section>.<ID> (e.g., G.1.1).`);
             result.isValid = false;
             return;
         }
         const parts = req.id.split('.');
         const letter = parts[0];
-        const chapterNum = parseInt(parts[1], 10);
-        // Check consistency with Book
-        const expectedLetter = this.bookPrefixMap.get(req.book);
+        const sectionNum = parseInt(parts[1], 10);
+        // Check consistency with Part
+        const expectedLetter = this.partPrefixMap.get(req.part);
         if (expectedLetter && letter !== expectedLetter) {
-            result.errors.push(`Requirement ${req.id}: ID starts with '${letter}' but belongs to '${req.book}' (expected '${expectedLetter}').`);
+            result.errors.push(`Requirement ${req.id}: ID starts with '${letter}' but belongs to '${req.part}' (expected '${expectedLetter}').`);
             result.isValid = false;
         }
-        // Check consistency with Chapter
-        const bookChapters = this.bookChapterIndex.get(req.book);
-        if (bookChapters) {
-            const normalizedChapterTitle = req.chapter.toLowerCase().trim();
-            const expectedChapterNum = bookChapters.get(normalizedChapterTitle);
-            if (expectedChapterNum !== undefined && chapterNum !== expectedChapterNum) {
-                result.errors.push(`Requirement ${req.id}: ID indicates chapter ${chapterNum} but belongs to chapter "${req.chapter}" (expected ${expectedChapterNum}).`);
+        // Check consistency with Section
+        const partSections = this.partSectionIndex.get(req.part);
+        if (partSections) {
+            const normalizedSectionTitle = req.section.toLowerCase().trim();
+            const expectedSectionNum = partSections.get(normalizedSectionTitle);
+            if (expectedSectionNum !== undefined && sectionNum !== expectedSectionNum) {
+                result.errors.push(`Requirement ${req.id}: ID indicates section ${sectionNum} but belongs to section "${req.section}" (expected ${expectedSectionNum}).`);
                 result.isValid = false;
             }
         }
@@ -26443,7 +26444,7 @@ class RequirementValidator {
     }
     validateNestingDepth(req, result) {
         // G.1.2 -> depth 3 (parts length)
-        // We consider "G.1.2" as depth 1 relative to chapter? 
+        // We consider "G.1.2" as depth 1 relative to section? 
         // Request: "warn if deep". Let's say max 6 parts (e.g. G.1.2.3.4.5)
         const parts = req.id.split('.');
         if (parts.length > 6) {
@@ -26474,18 +26475,18 @@ class RequirementValidator {
             }
         }
     }
-    validateRequiredChapters(requirements, structure, result) {
+    validateRequiredSections(requirements, structure, result) {
         const coveredNodeIds = new Set();
         for (const req of requirements) {
             const parts = req.id.split('.');
             if (parts.length >= 2) {
                 // G.1
                 coveredNodeIds.add(`${parts[0]}.${parts[1]}`);
-                // Also G? Generally strict validation on chapters implies books are covered too.
+                // Also G? Generally strict validation on sections implies parts are covered too.
                 coveredNodeIds.add(parts[0]);
             }
         }
-        for (const node of structure.books) {
+        for (const node of structure.parts) {
             this.checkNodeRequirement(node, coveredNodeIds, result);
         }
     }
@@ -26493,7 +26494,7 @@ class RequirementValidator {
         if (node.required) {
             if (!coveredIds.has(node.id)) {
                 // No requirement found that matches this node ID (e.g. G.1.x)
-                result.errors.push(`Missing requirements for required chapter/book: ${node.title} (${node.id})`);
+                result.errors.push(`Missing requirements for required section/part: ${node.title} (${node.id})`);
                 result.isValid = false;
             }
         }

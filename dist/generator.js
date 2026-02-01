@@ -64,7 +64,6 @@ class AdocGenerator {
     }
     async generatePartFromStructure(partNode, reqsByPartKey) {
         let content = `= ${partNode.title}\n:toc:\n\n`;
-        content += `${partNode.description}\n\n`;
         // Get requirements for this part
         const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
         // Group by Section
@@ -77,7 +76,6 @@ class AdocGenerator {
         }
         for (const sectionNode of partNode.children) {
             content += `== ${sectionNode.id} ${sectionNode.title}\n`;
-            content += `${sectionNode.description}\n\n`;
             const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
             if (sectionReqs && sectionReqs.length > 0) {
                 content += this.generateSectionContent(sectionReqs) + '\n';

@@ -43,7 +43,7 @@ export class AdocGenerator {
 
     private async generatePartFromStructure(partNode: StructureNode, reqsByPartKey: Map<string, Requirement[]>): Promise<string> {
         let content = `= ${partNode.title}\n:toc:\n\n`;
-        content += `${partNode.description}\n\n`;
+
 
         // Get requirements for this part
         const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
@@ -58,7 +58,7 @@ export class AdocGenerator {
 
         for (const sectionNode of partNode.children) {
             content += `== ${sectionNode.id} ${sectionNode.title}\n`;
-            content += `${sectionNode.description}\n\n`;
+
 
             const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
 
