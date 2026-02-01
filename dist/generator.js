@@ -131,10 +131,10 @@ class AdocGenerator {
             const [filePath, customCaption] = item.split('|').map(s => s.trim());
             const caption = customCaption ? `.${customCaption}` : `.Visual for ${reqId}`;
             if (filePath.match(/\.puml$/i)) {
-                content += `\n${caption}\nplantuml::${filePath}[format=svg, target=diagram-${reqId}-${Math.random().toString(36).substring(7)}, align=center]\n\n`;
+                content += `\n[.text-center]\n${caption}\nplantuml::${filePath}[format=svg, target=diagram-${reqId}-${Math.random().toString(36).substring(7)}, align=center]\n\n`;
             }
             else if (filePath.match(/\.(png|jpg|jpeg|svg|gif)$/i)) {
-                content += `\n${caption}\nimage::${filePath}[${reqId} Image, align=center]\n\n`;
+                content += `\n[.text-center]\n${caption}\nimage::${filePath}[${reqId} Image, align=center]\n\n`;
             }
             else {
                 content += `\nlink:${filePath}[Attached File]\n\n`;
