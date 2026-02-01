@@ -94,14 +94,8 @@ class AdocGenerator {
         let content = '';
         const headerPrefix = '='.repeat(level);
         for (const req of reqs) {
-            // Updated Requirement Format:
-            // [red]#ID# Description...
-            // Use role for color if supported by theme, or direct color attribute
-            // Asciidoctor PDF supports font color attributes: [red]#text#
-            // User requested "dark red". Let's use a hex code with styling if possible, or a role.
-            // Inline style: [big red]#text#
-            // Let's assume standard asciidoc coloring works. 
-            // `[#8b0000]#${req.id}#` for dark red.
+            // Render requirement with styled ID and priority
+            // Roles are defined in the theme file (e.g., pegs-theme.yml)
             let reqLine = `[.req_id]#${req.id}# `;
             if (req.priority) {
                 reqLine += `[.priority]#${req.priority}# `;
@@ -111,16 +105,11 @@ class AdocGenerator {
             if (req.attachedFiles) {
                 content += this.handleAttachedFiles(req.attachedFiles, req.id);
             }
-            if (req.priority || req.referenceTo) {
+            if (req.referenceTo) {
                 content += `[cols="1,4", options="noheader", frame="none", grid="none"]\n|===\n`;
-                if (req.priority) {
-                    content += `|*Priority*: | [.priority]#${req.priority}#\n`;
-                }
-                if (req.referenceTo) {
-                    const refs = req.referenceTo.split(',').map(r => r.trim());
-                    const links = refs.map(r => `<<${r}>>`).join(', ');
-                    content += `|*References*: | ${links}\n`;
-                }
+                const refs = req.referenceTo.split(',').map(r => r.trim());
+                const links = refs.map(r => `<<${r}>>`).join(', ');
+                content += `|*References*: | ${links}\n`;
                 content += `|===\n\n`;
             }
             content += `[#${req.id}]\n`;

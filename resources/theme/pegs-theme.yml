@@ -52,8 +52,9 @@ role:
     font_style: bold
   priority:
     font_style: italic
+    font_weight: 500
   indent:
     # Use padding_left to ensure indentation of content
-    padding_left: 0.75in
+    padding_left: 10in
     # Ensure no border if accidental styling applies
     border_width: 0
