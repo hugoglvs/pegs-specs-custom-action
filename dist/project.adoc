@@ -1,0 +1,61 @@
+= Project Book
+:toc:
+
+The Project book describes the project management aspects.
+
+== P.1 Roles and personnel
+Roles and personnel involved in the project.
+
+=== P.1.1
+*Priority*: Medium
+
+*Description*: Senior developer Hugo.
+
+[#P.1.1]
+---
+
+
+== P.2 Tools and techniques
+Tools and techniques used in the project.
+
+_No requirements for this chapter._
+
+== P.3 Project management
+Project management aspects.
+
+=== P.3.1
+*Priority*: High
+
+*Description*: Project shall be managed using Agile methodology.
+
+[#P.3.1]
+---
+
+
+== P.4 Validation
+Validation aspects.
+
+=== P.4.1
+*Priority*: High
+
+*Description*: Validation shall be performed by the QA team.
+
+[#P.4.1]
+---
+
+
+== P.5 Verification
+Verification aspects.
+
+_No requirements for this chapter._
+
+== P.6 Configuration management
+Configuration management aspects.
+
+_No requirements for this chapter._
+
+== P.7 Documentation
+Documentation aspects.
+
+_No requirements for this chapter._
+
