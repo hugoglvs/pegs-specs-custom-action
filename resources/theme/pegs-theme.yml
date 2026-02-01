@@ -48,8 +48,10 @@ caption:
 role:
   req_id:
     font_family: Monospace
-    font_color: "8B0000"
+    font_color: FF0000
     font_style: bold
+  priority:
+    font_style: italic
   indent:
     # Use padding_left to ensure indentation of content
     padding_left: 0.75in
