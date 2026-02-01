@@ -102,20 +102,23 @@ class AdocGenerator {
             // Inline style: [big red]#text#
             // Let's assume standard asciidoc coloring works. 
             // `[#8b0000]#${req.id}#` for dark red.
-            content += `[.req_id]#${req.id}# ${req.description}\n\n`;
+            let reqLine = `[.req_id]#${req.id}# `;
+            if (req.priority) {
+                // Inline priority with italic style or maybe red too? User said: "{red} *High*"
+                // Assuming they want it styled. Let's make it italic as requested.
+                // "S.2.1{red} *High* The system..."
+                reqLine += `*${req.priority}* `;
+            }
+            reqLine += `${req.description}\n\n`;
+            content += reqLine;
             if (req.attachedFiles) {
                 content += this.handleAttachedFiles(req.attachedFiles, req.id);
             }
-            if (req.priority || req.referenceTo) {
+            if (req.referenceTo) {
                 content += `[cols="1,4", options="noheader", frame="none", grid="none"]\n|===\n`;
-                if (req.priority) {
-                    content += `|*Priority*: | ${req.priority}\n`;
-                }
-                if (req.referenceTo) {
-                    const refs = req.referenceTo.split(',').map(r => r.trim());
-                    const links = refs.map(r => `<<${r}>>`).join(', ');
-                    content += `|*References*: | ${links}\n`;
-                }
+                const refs = req.referenceTo.split(',').map(r => r.trim());
+                const links = refs.map(r => `<<${r}>>`).join(', ');
+                content += `|*References*: | ${links}\n`;
                 content += `|===\n\n`;
             }
             content += `[#${req.id}]\n`;
