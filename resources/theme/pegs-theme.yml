@@ -45,3 +45,7 @@ caption:
   font_style: italic
   font_size: 10
   font_color: 666666
+role:
+  req_id:
+    font_color: 8B0000
+    font_style: bold

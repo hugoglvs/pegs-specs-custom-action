@@ -129,7 +129,7 @@ export class AdocGenerator {
             // Let's assume standard asciidoc coloring works. 
             // `[#8b0000]#${req.id}#` for dark red.
 
-            content += `[red]#${req.id}# ${req.description}\n\n`;
+            content += `[.req_id]#${req.id}# ${req.description}\n\n`;
 
             if (req.attachedFiles) {
                 content += this.handleAttachedFiles(req.attachedFiles, req.id);
