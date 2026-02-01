@@ -94,11 +94,26 @@ async function run(): Promise<void> {
     // Prefer Structure Order
     const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
 
+    // Generate Changelog First
+    let changelogContent = '';
+    try {
+      core.info('Generating Changelog...');
+      const changelogEntries = await getChangelog();
+      if (changelogEntries.length > 0) {
+        changelogContent = generateChangelogAdoc(changelogEntries);
+        core.info(`Generated Changelog with ${changelogEntries.length} entries.`);
+      } else {
+        core.info('No tags found for Changelog.');
+      }
+    } catch (err) {
+      core.warning(`Failed to generate changelog: ${err}`);
+    }
+
     let masterContent = `= ${projectName}\n`;
     if (authors) masterContent += `${authors}\n`;
     masterContent += `${generationDate}\n`;
     masterContent += ':title-page:\n';
-    masterContent += ':toc: left\n:toclevels: 2\n';
+    masterContent += ':toc: macro\n:toclevels: 2\n'; // Use macro to control placement
 
     if (logoPath) {
       // Use absolute path for logo to ensure asciidoctor-pdf can find it regardless of CWD
@@ -111,24 +126,17 @@ async function run(): Promise<void> {
     }
     masterContent += '\n\n<<<\n\n';
 
+    // Insert Changelog before TOC
+    if (changelogContent) {
+      masterContent += changelogContent;
+      masterContent += '\n\n<<<\n\n';
+    }
+
+    // Insert TOC
+    masterContent += 'toc::[]\n\n<<<\n\n';
+
     // Append Parts Content
     masterContent += partsContent;
-
-    // Append Changelog
-    try {
-      core.info('Generating Changelog...');
-      const changelogEntries = await getChangelog();
-      if (changelogEntries.length > 0) {
-        masterContent += '\n\n<<<\n\n';
-        const changelogContent = generateChangelogAdoc(changelogEntries);
-        masterContent += changelogContent;
-        core.info(`Added Changelog with ${changelogEntries.length} entries.`);
-      } else {
-        core.info('No tags found for Changelog.');
-      }
-    } catch (err) {
-      core.warning(`Failed to generate changelog: ${err}`);
-    }
 
     // Write master adoc
     await fs.promises.writeFile(masterAdocPath, masterContent);
