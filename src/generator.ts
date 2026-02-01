@@ -15,17 +15,17 @@ export class AdocGenerator {
         this.templatesPath = templatesPath;
     }
 
-    public async generate(data: ParsedRequirements, structure: Structure): Promise<Map<string, string>> {
-        // Ensure output dir exists
-        await fs.promises.mkdir(this.outputDir, { recursive: true });
+    public async generate(data: ParsedRequirements, structure: Structure): Promise<string> {
+        // Ensure output dir exists (still needed for assets copying later in main, but maybe not strictly for this method if we don't write files)
+        // main.ts handles mkdir, but let's keep it safe or rely on main.
+        // We actually don't need outputDir in constructor anymore if we don't write files.
+        // But we might need it for resolving relative paths if we did anything complex. 
+        // For now, let's just generate the string.
 
-        const generatedFiles = new Map<string, string>();
+        // We will build the body content.
+        let fullContent = '';
 
         // Index requirements by Part then Section for easy lookup
-        // We'll map structure title -> req.part? 
-        // Better: We iterate the STRUCTURE. For each part in structure, we find matching reqs.
-
-        // Group reqs by Part Name (normalized)
         const reqsByPartKey = new Map<string, Requirement[]>();
         for (const req of data.requirements) {
             const key = req.part.toLowerCase().trim();
@@ -34,16 +34,20 @@ export class AdocGenerator {
         }
 
         for (const partNode of structure.parts) {
-            const fileName = await this.generatePartFromStructure(partNode, reqsByPartKey);
-            generatedFiles.set(partNode.title, fileName);
+            const partContent = await this.generatePartContent(partNode, reqsByPartKey);
+            fullContent += partContent;
+            // Add a page break between parts?
+            // The master doc usually puts breaks. We can add specific breaks here.
+            fullContent += '\n\n<<<\n\n';
         }
 
-        return generatedFiles;
+        return fullContent;
     }
 
-    private async generatePartFromStructure(partNode: StructureNode, reqsByPartKey: Map<string, Requirement[]>): Promise<string> {
-        let content = `= ${partNode.title}\n:toc:\n\n`;
-
+    private async generatePartContent(partNode: StructureNode, reqsByPartKey: Map<string, Requirement[]>): Promise<string> {
+        // Part Title at Level 1 (==) because Master is Level 0 (=)
+        let content = `== ${partNode.title}\n\n`;
+        // Description removed as per previous fix
 
         // Get requirements for this part
         const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
@@ -57,8 +61,9 @@ export class AdocGenerator {
         }
 
         for (const sectionNode of partNode.children) {
-            content += `== ${sectionNode.id} ${sectionNode.title}\n`;
-
+            // Section Title at Level 2 (===)
+            content += `=== ${sectionNode.id} ${sectionNode.title}\n\n`;
+            // Description removed as per previous fix
 
             const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
 
@@ -69,21 +74,18 @@ export class AdocGenerator {
             }
         }
 
-        // Clean filename: "Goals Book" -> "goals.adoc"
-        // Try to keep consistent with old naming if possible, default to sanitized title
-        let baseName = partNode.title.toLowerCase().split(' ')[0]; // "goals"
-        if (baseName.length < 3) baseName = partNode.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
-        const fileName = `${baseName}.adoc`;
-        await fs.promises.writeFile(path.join(this.outputDir, fileName), content);
-        return fileName;
+        return content;
     }
 
 
     private generateSectionContent(reqs: Requirement[]): string {
         // Build hierarchy first
         const roots = this.buildHierarchy(reqs);
-        return this.renderRequirements(roots, 3); // Start at level 3 (===)
+        // Start at level 4 (====) for requirements, since Section is level 2 (===) wait.
+        // Part: ==
+        // Section: ===
+        // Requirement: ====
+        return this.renderRequirements(roots, 4);
     }
 
     private buildHierarchy(reqs: Requirement[]): Requirement[] {

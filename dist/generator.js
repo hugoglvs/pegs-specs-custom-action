@@ -1,54 +1,20 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdocGenerator = void 0;
-const fs = __importStar(require("fs"));
-const path = __importStar(require("path"));
 class AdocGenerator {
     constructor(outputDir, templatesPath) {
         this.outputDir = outputDir;
         this.templatesPath = templatesPath;
     }
     async generate(data, structure) {
-        // Ensure output dir exists
-        await fs.promises.mkdir(this.outputDir, { recursive: true });
-        const generatedFiles = new Map();
+        // Ensure output dir exists (still needed for assets copying later in main, but maybe not strictly for this method if we don't write files)
+        // main.ts handles mkdir, but let's keep it safe or rely on main.
+        // We actually don't need outputDir in constructor anymore if we don't write files.
+        // But we might need it for resolving relative paths if we did anything complex. 
+        // For now, let's just generate the string.
+        // We will build the body content.
+        let fullContent = '';
         // Index requirements by Part then Section for easy lookup
-        // We'll map structure title -> req.part? 
-        // Better: We iterate the STRUCTURE. For each part in structure, we find matching reqs.
-        // Group reqs by Part Name (normalized)
         const reqsByPartKey = new Map();
         for (const req of data.requirements) {
             const key = req.part.toLowerCase().trim();
@@ -57,13 +23,18 @@ class AdocGenerator {
             reqsByPartKey.get(key)?.push(req);
         }
         for (const partNode of structure.parts) {
-            const fileName = await this.generatePartFromStructure(partNode, reqsByPartKey);
-            generatedFiles.set(partNode.title, fileName);
+            const partContent = await this.generatePartContent(partNode, reqsByPartKey);
+            fullContent += partContent;
+            // Add a page break between parts?
+            // The master doc usually puts breaks. We can add specific breaks here.
+            fullContent += '\n\n<<<\n\n';
         }
-        return generatedFiles;
+        return fullContent;
     }
-    async generatePartFromStructure(partNode, reqsByPartKey) {
-        let content = `= ${partNode.title}\n:toc:\n\n`;
+    async generatePartContent(partNode, reqsByPartKey) {
+        // Part Title at Level 1 (==) because Master is Level 0 (=)
+        let content = `== ${partNode.title}\n\n`;
+        // Description removed as per previous fix
         // Get requirements for this part
         const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
         // Group by Section
@@ -75,7 +46,9 @@ class AdocGenerator {
             reqsBySectionKey.get(cKey)?.push(req);
         }
         for (const sectionNode of partNode.children) {
-            content += `== ${sectionNode.id} ${sectionNode.title}\n`;
+            // Section Title at Level 2 (===)
+            content += `=== ${sectionNode.id} ${sectionNode.title}\n\n`;
+            // Description removed as per previous fix
             const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
             if (sectionReqs && sectionReqs.length > 0) {
                 content += this.generateSectionContent(sectionReqs) + '\n';
@@ -84,19 +57,16 @@ class AdocGenerator {
                 content += `_No requirements for this section._\n\n`;
             }
         }
-        // Clean filename: "Goals Book" -> "goals.adoc"
-        // Try to keep consistent with old naming if possible, default to sanitized title
-        let baseName = partNode.title.toLowerCase().split(' ')[0]; // "goals"
-        if (baseName.length < 3)
-            baseName = partNode.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const fileName = `${baseName}.adoc`;
-        await fs.promises.writeFile(path.join(this.outputDir, fileName), content);
-        return fileName;
+        return content;
     }
     generateSectionContent(reqs) {
         // Build hierarchy first
         const roots = this.buildHierarchy(reqs);
-        return this.renderRequirements(roots, 3); // Start at level 3 (===)
+        // Start at level 4 (====) for requirements, since Section is level 2 (===) wait.
+        // Part: ==
+        // Section: ===
+        // Requirement: ====
+        return this.renderRequirements(roots, 4);
     }
     buildHierarchy(reqs) {
         const reqMap = new Map();

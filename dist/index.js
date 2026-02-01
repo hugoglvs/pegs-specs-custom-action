@@ -25742,60 +25742,26 @@ function generateChangelogAdoc(entries) {
 /***/ }),
 
 /***/ 4950:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.AdocGenerator = void 0;
-const fs = __importStar(__nccwpck_require__(9896));
-const path = __importStar(__nccwpck_require__(6928));
 class AdocGenerator {
     constructor(outputDir, templatesPath) {
         this.outputDir = outputDir;
         this.templatesPath = templatesPath;
     }
     async generate(data, structure) {
-        // Ensure output dir exists
-        await fs.promises.mkdir(this.outputDir, { recursive: true });
-        const generatedFiles = new Map();
+        // Ensure output dir exists (still needed for assets copying later in main, but maybe not strictly for this method if we don't write files)
+        // main.ts handles mkdir, but let's keep it safe or rely on main.
+        // We actually don't need outputDir in constructor anymore if we don't write files.
+        // But we might need it for resolving relative paths if we did anything complex. 
+        // For now, let's just generate the string.
+        // We will build the body content.
+        let fullContent = '';
         // Index requirements by Part then Section for easy lookup
-        // We'll map structure title -> req.part? 
-        // Better: We iterate the STRUCTURE. For each part in structure, we find matching reqs.
-        // Group reqs by Part Name (normalized)
         const reqsByPartKey = new Map();
         for (const req of data.requirements) {
             const key = req.part.toLowerCase().trim();
@@ -25804,13 +25770,18 @@ class AdocGenerator {
             reqsByPartKey.get(key)?.push(req);
         }
         for (const partNode of structure.parts) {
-            const fileName = await this.generatePartFromStructure(partNode, reqsByPartKey);
-            generatedFiles.set(partNode.title, fileName);
+            const partContent = await this.generatePartContent(partNode, reqsByPartKey);
+            fullContent += partContent;
+            // Add a page break between parts?
+            // The master doc usually puts breaks. We can add specific breaks here.
+            fullContent += '\n\n<<<\n\n';
         }
-        return generatedFiles;
+        return fullContent;
     }
-    async generatePartFromStructure(partNode, reqsByPartKey) {
-        let content = `= ${partNode.title}\n:toc:\n\n`;
+    async generatePartContent(partNode, reqsByPartKey) {
+        // Part Title at Level 1 (==) because Master is Level 0 (=)
+        let content = `== ${partNode.title}\n\n`;
+        // Description removed as per previous fix
         // Get requirements for this part
         const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
         // Group by Section
@@ -25822,7 +25793,9 @@ class AdocGenerator {
             reqsBySectionKey.get(cKey)?.push(req);
         }
         for (const sectionNode of partNode.children) {
-            content += `== ${sectionNode.id} ${sectionNode.title}\n`;
+            // Section Title at Level 2 (===)
+            content += `=== ${sectionNode.id} ${sectionNode.title}\n\n`;
+            // Description removed as per previous fix
             const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
             if (sectionReqs && sectionReqs.length > 0) {
                 content += this.generateSectionContent(sectionReqs) + '\n';
@@ -25831,19 +25804,16 @@ class AdocGenerator {
                 content += `_No requirements for this section._\n\n`;
             }
         }
-        // Clean filename: "Goals Book" -> "goals.adoc"
-        // Try to keep consistent with old naming if possible, default to sanitized title
-        let baseName = partNode.title.toLowerCase().split(' ')[0]; // "goals"
-        if (baseName.length < 3)
-            baseName = partNode.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const fileName = `${baseName}.adoc`;
-        await fs.promises.writeFile(path.join(this.outputDir, fileName), content);
-        return fileName;
+        return content;
     }
     generateSectionContent(reqs) {
         // Build hierarchy first
         const roots = this.buildHierarchy(reqs);
-        return this.renderRequirements(roots, 3); // Start at level 3 (===)
+        // Start at level 4 (====) for requirements, since Section is level 2 (===) wait.
+        // Part: ==
+        // Section: ===
+        // Requirement: ====
+        return this.renderRequirements(roots, 4);
     }
     buildHierarchy(reqs) {
         const reqMap = new Map();
@@ -25998,10 +25968,12 @@ async function run() {
             return;
         }
         core.info('Validation passed.');
-        core.info(`Generating AsciiDoc files in ${outputDir}...`);
+        core.info(`Generating AsciiDoc content...`);
         const generator = new generator_1.AdocGenerator(outputDir, templatesPath);
-        // Generate parts based on structure (returns Map<PartTitle, FileName>)
-        const generatedFilesMap = await generator.generate(data, structure);
+        // Generate full content parts string
+        const partsContent = await generator.generate(data, structure);
+        // Install dependencies
+        core.startGroup('Installing Asciidoctor dependencies');
         // Install dependencies
         core.startGroup('Installing Asciidoctor dependencies');
         // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
@@ -26059,24 +26031,16 @@ async function run() {
             }
         }
         masterContent += '\n\n<<<\n\n';
-        // List of parts to include in the order they will appear
-        const finalPartSequence = [];
-        // Iterate structure to define order
-        for (const partNode of structure.parts) {
-            const fileName = generatedFilesMap.get(partNode.title);
-            if (fileName) {
-                finalPartSequence.push({ type: partNode.title, file: fileName, title: partNode.title });
-            }
-        }
+        // Append Parts Content
+        masterContent += partsContent;
         // Append Changelog
         try {
             core.info('Generating Changelog...');
             const changelogEntries = await (0, changelog_1.getChangelog)();
             if (changelogEntries.length > 0) {
+                masterContent += '\n\n<<<\n\n';
                 const changelogContent = (0, changelog_1.generateChangelogAdoc)(changelogEntries);
-                const changelogFile = 'changelog.adoc';
-                await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
-                finalPartSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
+                masterContent += changelogContent;
                 core.info(`Added Changelog with ${changelogEntries.length} entries.`);
             }
             else {
@@ -26085,12 +26049,6 @@ async function run() {
         }
         catch (err) {
             core.warning(`Failed to generate changelog: ${err}`);
-        }
-        core.info(`Ordered parts for generation: ${finalPartSequence.map(b => b.title).join(', ')}`);
-        for (const part of finalPartSequence) {
-            // For PDF, we include them
-            // We typically need to adjust level offset so they become chapters of the master doc
-            masterContent += `<<<\ninclude::${part.file}[leveloffset=+1]\n\n`;
         }
         // Write master adoc
         await fs.promises.writeFile(masterAdocPath, masterContent);

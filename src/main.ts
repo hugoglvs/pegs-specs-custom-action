@@ -40,10 +40,14 @@ async function run(): Promise<void> {
     }
     core.info('Validation passed.');
 
-    core.info(`Generating AsciiDoc files in ${outputDir}...`);
+    core.info(`Generating AsciiDoc content...`);
     const generator = new AdocGenerator(outputDir, templatesPath);
-    // Generate parts based on structure (returns Map<PartTitle, FileName>)
-    const generatedFilesMap = await generator.generate(data, structure);
+    // Generate full content parts string
+    const partsContent = await generator.generate(data, structure);
+
+    // Install dependencies
+    core.startGroup('Installing Asciidoctor dependencies');
+
 
     // Install dependencies
     core.startGroup('Installing Asciidoctor dependencies');
@@ -107,41 +111,23 @@ async function run(): Promise<void> {
     }
     masterContent += '\n\n<<<\n\n';
 
-    // List of parts to include in the order they will appear
-    const finalPartSequence: { type: string, file: string, title: string }[] = [];
-
-    // Iterate structure to define order
-    for (const partNode of structure.parts) {
-      const fileName = generatedFilesMap.get(partNode.title);
-      if (fileName) {
-        finalPartSequence.push({ type: partNode.title, file: fileName, title: partNode.title });
-      }
-    }
+    // Append Parts Content
+    masterContent += partsContent;
 
     // Append Changelog
     try {
       core.info('Generating Changelog...');
       const changelogEntries = await getChangelog();
       if (changelogEntries.length > 0) {
+        masterContent += '\n\n<<<\n\n';
         const changelogContent = generateChangelogAdoc(changelogEntries);
-        const changelogFile = 'changelog.adoc';
-        await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
-        finalPartSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
+        masterContent += changelogContent;
         core.info(`Added Changelog with ${changelogEntries.length} entries.`);
       } else {
         core.info('No tags found for Changelog.');
       }
     } catch (err) {
       core.warning(`Failed to generate changelog: ${err}`);
-    }
-
-
-    core.info(`Ordered parts for generation: ${finalPartSequence.map(b => b.title).join(', ')}`);
-
-    for (const part of finalPartSequence) {
-      // For PDF, we include them
-      // We typically need to adjust level offset so they become chapters of the master doc
-      masterContent += `<<<\ninclude::${part.file}[leveloffset=+1]\n\n`;
     }
 
     // Write master adoc
