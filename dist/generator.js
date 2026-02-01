@@ -126,9 +126,15 @@ class AdocGenerator {
             else {
                 content += `\n`;
             }
-            // Render children recursively
+            // Render children recursively in an indented block
             if (req.children && req.children.length > 0) {
+                // Using an open block with a role to apply styled indentation via theme or CSS (HTML)
+                // For PDF, we need to ensure the role is handled in the theme if customized,
+                // or simpler: just use AsciiDoc Indent char, but that applies to block mainly?
+                // Let's use a sidebar block or just an open block with role.
+                content += `[.indent]\n--\n`;
                 content += this.renderRequirements(req.children, level + 1);
+                content += `--\n\n`;
             }
         }
         return content;
