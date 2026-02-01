@@ -104,10 +104,7 @@ class AdocGenerator {
             // `[#8b0000]#${req.id}#` for dark red.
             let reqLine = `[.req_id]#${req.id}# `;
             if (req.priority) {
-                // Inline priority with italic style or maybe red too? User said: "{red} *High*"
-                // Assuming they want it styled. Let's make it italic as requested.
-                // "S.2.1{red} *High* The system..."
-                reqLine += `**${req.priority}** `;
+                reqLine += `[.priority]#${req.priority}# `;
             }
             reqLine += `${req.description}\n\n`;
             content += reqLine;
@@ -117,7 +114,7 @@ class AdocGenerator {
             if (req.priority || req.referenceTo) {
                 content += `[cols="1,4", options="noheader", frame="none", grid="none"]\n|===\n`;
                 if (req.priority) {
-                    content += `|*Priority*: | ${req.priority}\n`;
+                    content += `|*Priority*: | [.priority]#${req.priority}#\n`;
                 }
                 if (req.referenceTo) {
                     const refs = req.referenceTo.split(',').map(r => r.trim());
