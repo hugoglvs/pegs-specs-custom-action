@@ -25854,18 +25854,23 @@ class AdocGenerator {
                 // Inline priority with italic style or maybe red too? User said: "{red} *High*"
                 // Assuming they want it styled. Let's make it italic as requested.
                 // "S.2.1{red} *High* The system..."
-                reqLine += `*${req.priority}* `;
+                reqLine += `**${req.priority}** `;
             }
             reqLine += `${req.description}\n\n`;
             content += reqLine;
             if (req.attachedFiles) {
                 content += this.handleAttachedFiles(req.attachedFiles, req.id);
             }
-            if (req.referenceTo) {
+            if (req.priority || req.referenceTo) {
                 content += `[cols="1,4", options="noheader", frame="none", grid="none"]\n|===\n`;
-                const refs = req.referenceTo.split(',').map(r => r.trim());
-                const links = refs.map(r => `<<${r}>>`).join(', ');
-                content += `|*References*: | ${links}\n`;
+                if (req.priority) {
+                    content += `|*Priority*: | ${req.priority}\n`;
+                }
+                if (req.referenceTo) {
+                    const refs = req.referenceTo.split(',').map(r => r.trim());
+                    const links = refs.map(r => `<<${r}>>`).join(', ');
+                    content += `|*References*: | ${links}\n`;
+                }
                 content += `|===\n\n`;
             }
             content += `[#${req.id}]\n`;
@@ -25966,8 +25971,8 @@ const structure_1 = __nccwpck_require__(5842);
 const changelog_1 = __nccwpck_require__(8397);
 async function run() {
     try {
-        const requirementsPath = core.getInput('requirements-path');
-        const outputDir = core.getInput('output-dir');
+        const requirementsPath = core.getInput('requirements-path') || 'requirements.csv';
+        const outputDir = core.getInput('output-dir') || 'dist';
         const templatesPath = core.getInput('templates-path');
         const structurePath = core.getInput('structure-path') || 'structure.csv';
         core.info(`Loading structure from ${structurePath}`);
@@ -25996,24 +26001,49 @@ async function run() {
         core.startGroup('Installing Asciidoctor dependencies');
         // Install dependencies
         core.startGroup('Installing Asciidoctor dependencies');
-        // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
-        // On GitHub Actions runners (ubuntu-latest), sudo is passwordless.
-        const isLinux = process.platform === 'linux';
-        const sudoPrefix = isLinux ? 'sudo ' : '';
-        await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram asciidoctor-diagram-plantuml`);
-        // Ensure graphviz and java (JRE) are installed for plantuml
+        // Check for existing installation to avoid permissions issues locally
+        let isInstalled = false;
         try {
-            await exec.exec('dot -V');
-            await exec.exec('java -version');
+            await exec.exec('asciidoctor-pdf -v', [], { silent: true });
+            isInstalled = true;
+            core.info('Asciidoctor tools already installed via gem.');
         }
         catch {
-            core.info('Graphviz or Java not found. Attempting install...');
-            if (process.platform === 'linux') {
-                await exec.exec('sudo apt-get update');
-                await exec.exec('sudo apt-get install -y graphviz plantuml default-jre');
+            core.info('Asciidoctor tools not found.');
+        }
+        if (!isInstalled) {
+            // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
+            // On GitHub Actions runners (ubuntu-latest), sudo is passwordless.
+            const isLinux = process.platform === 'linux';
+            // On macOS locally, user might need sudo or have valid rbenv. 
+            // We defaults to no-sudo for mac unless CI, but here we just keep existing logic (no sudo on mac)
+            // If it fails EPERM, user should install manually.
+            const sudoPrefix = isLinux ? 'sudo ' : '';
+            try {
+                await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram asciidoctor-diagram-plantuml`);
             }
-            else if (process.platform === 'darwin') {
-                await exec.exec('brew install graphviz plantuml openjdk');
+            catch (err) {
+                core.warning(`Gem install failed: ${err.message}. Assuming tools might be managed externally or proceed at own risk.`);
+            }
+        }
+        // Ensure graphviz and java (JRE) are installed for plantuml
+        try {
+            await exec.exec('dot -V', [], { silent: true });
+            await exec.exec('java -version', [], { silent: true });
+        }
+        catch (checkErr) {
+            core.info('Graphviz or Java not found. Attempting install...');
+            try {
+                if (process.platform === 'linux') {
+                    await exec.exec('sudo apt-get update');
+                    await exec.exec('sudo apt-get install -y graphviz plantuml default-jre');
+                }
+                else if (process.platform === 'darwin') {
+                    await exec.exec('brew install graphviz plantuml openjdk');
+                }
+            }
+            catch (installErr) {
+                core.warning(`Dependency install failed: ${installErr.message}. Visualization generation (PlantUML) might fail.`);
             }
         }
         core.endGroup();
@@ -26082,7 +26112,13 @@ async function run() {
         const pdfFontsDir = core.getInput('pdf-fonts-dir');
         let pdfCommand = `asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read`;
         if (pdfThemePath) {
-            pdfCommand += ` -a pdf-theme=${pdfThemePath}`;
+            const absoluteThemePath = path.isAbsolute(pdfThemePath) ? pdfThemePath : path.resolve(process.cwd(), pdfThemePath);
+            if (fs.existsSync(absoluteThemePath)) {
+                pdfCommand += ` -a pdf-theme=${absoluteThemePath}`;
+            }
+            else {
+                core.warning(`Theme file not found at ${absoluteThemePath}. Using default theme.`);
+            }
         }
         if (pdfFontsDir) {
             pdfCommand += ` -a pdf-fontsdir=${pdfFontsDir}`;

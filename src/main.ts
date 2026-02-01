@@ -11,8 +11,8 @@ import { getChangelog, generateChangelogAdoc } from './changelog';
 
 async function run(): Promise<void> {
   try {
-    const requirementsPath = core.getInput('requirements-path');
-    const outputDir = core.getInput('output-dir');
+    const requirementsPath = core.getInput('requirements-path') || 'requirements.csv';
+    const outputDir = core.getInput('output-dir') || 'dist';
     const templatesPath = core.getInput('templates-path');
     const structurePath = core.getInput('structure-path') || 'structure.csv';
 
@@ -52,23 +52,46 @@ async function run(): Promise<void> {
     // Install dependencies
     core.startGroup('Installing Asciidoctor dependencies');
 
-    // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
-    // On GitHub Actions runners (ubuntu-latest), sudo is passwordless.
-    const isLinux = process.platform === 'linux';
-    const sudoPrefix = isLinux ? 'sudo ' : '';
+    // Check for existing installation to avoid permissions issues locally
+    let isInstalled = false;
+    try {
+      await exec.exec('asciidoctor-pdf -v', [], { silent: true });
+      isInstalled = true;
+      core.info('Asciidoctor tools already installed via gem.');
+    } catch {
+      core.info('Asciidoctor tools not found.');
+    }
 
-    await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram asciidoctor-diagram-plantuml`);
+    if (!isInstalled) {
+      // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
+      // On GitHub Actions runners (ubuntu-latest), sudo is passwordless.
+      const isLinux = process.platform === 'linux';
+      // On macOS locally, user might need sudo or have valid rbenv. 
+      // We defaults to no-sudo for mac unless CI, but here we just keep existing logic (no sudo on mac)
+      // If it fails EPERM, user should install manually.
+      const sudoPrefix = isLinux ? 'sudo ' : '';
+
+      try {
+        await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram asciidoctor-diagram-plantuml`);
+      } catch (err: any) {
+        core.warning(`Gem install failed: ${err.message}. Assuming tools might be managed externally or proceed at own risk.`);
+      }
+    }
     // Ensure graphviz and java (JRE) are installed for plantuml
     try {
-      await exec.exec('dot -V');
-      await exec.exec('java -version');
-    } catch {
+      await exec.exec('dot -V', [], { silent: true });
+      await exec.exec('java -version', [], { silent: true });
+    } catch (checkErr) {
       core.info('Graphviz or Java not found. Attempting install...');
-      if (process.platform === 'linux') {
-        await exec.exec('sudo apt-get update');
-        await exec.exec('sudo apt-get install -y graphviz plantuml default-jre');
-      } else if (process.platform === 'darwin') {
-        await exec.exec('brew install graphviz plantuml openjdk');
+      try {
+        if (process.platform === 'linux') {
+          await exec.exec('sudo apt-get update');
+          await exec.exec('sudo apt-get install -y graphviz plantuml default-jre');
+        } else if (process.platform === 'darwin') {
+          await exec.exec('brew install graphviz plantuml openjdk');
+        }
+      } catch (installErr: any) {
+        core.warning(`Dependency install failed: ${installErr.message}. Visualization generation (PlantUML) might fail.`);
       }
     }
     core.endGroup();
