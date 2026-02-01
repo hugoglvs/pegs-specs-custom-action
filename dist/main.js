@@ -161,7 +161,13 @@ async function run() {
         const pdfFontsDir = core.getInput('pdf-fonts-dir');
         let pdfCommand = `asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read`;
         if (pdfThemePath) {
-            pdfCommand += ` -a pdf-theme=${pdfThemePath}`;
+            const absoluteThemePath = path.isAbsolute(pdfThemePath) ? pdfThemePath : path.resolve(process.cwd(), pdfThemePath);
+            if (fs.existsSync(absoluteThemePath)) {
+                pdfCommand += ` -a pdf-theme=${absoluteThemePath}`;
+            }
+            else {
+                core.warning(`Theme file not found at ${absoluteThemePath}. Using default theme.`);
+            }
         }
         if (pdfFontsDir) {
             pdfCommand += ` -a pdf-fontsdir=${pdfFontsDir}`;

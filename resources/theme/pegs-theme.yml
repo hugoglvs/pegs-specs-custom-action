@@ -47,11 +47,10 @@ caption:
   font_color: 666666
 role:
   req_id:
-    font_color: 8B0000
+    font_color: "8B0000"
     font_style: bold
   indent:
-    # Indent the block by adding margin/padding to left
-    # Asciidoctor PDF roles on blocks can effectively control padding/margins?
-    # Actually, roles on open blocks often work best if mapping to a style.
-    # But let's try margin-left.
-    margin_left: 0.5in
+    # Use padding_left to ensure indentation of content
+    padding_left: 0.75in
+    # Ensure no border if accidental styling applies
+    border_width: 0
