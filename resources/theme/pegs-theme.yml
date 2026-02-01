@@ -1,0 +1,58 @@
+extends: default
+page:
+  margin: [0.75in, 0.75in, 0.75in, 0.75in]
+  background_color: ffffff
+base:
+  # font_family: Helvetica
+  font_color: 333333
+  line_height_length: 1.2
+  line_height: $base_line_height_length
+header:
+  height: 0.75in
+  line_height: 1
+  rect_color: f8f9fa
+  content_center: "{document-title}"
+  font_color: 555555
+  border_color: dddddd
+  border_width: 0.25
+footer:
+  height: 0.75in
+  line_height: 1
+  rect_color: f8f9fa
+  content_left: "{chapter-title}"
+  content_right: "{page-number}"
+  font_color: 555555
+  border_color: dddddd
+  border_width: 0.25
+heading:
+  font_color: 1a1a1a
+  font_style: bold
+  h1_font_size: 24
+  h2_font_size: 20
+  h3_font_size: 16
+  h4_font_size: 14
+table:
+  head_font_style: bold
+  head_background_color: f2f2f2
+  even_row_background_color: f9f9f9
+code:
+  font_family: Courier
+  background_color: f5f5f5
+  border_color: cccccc
+  border_radius: 2
+caption:
+  align: center
+  font_style: italic
+  font_size: 10
+  font_color: 666666
+role:
+  req_id:
+    font_family: Monospace
+    font_color: #FF0000
+    font_style: bold
+  priority:
+    font_style: italic
+    font_weight: 500
+  indent:
+    padding_left: 10in
+    border_width: 0

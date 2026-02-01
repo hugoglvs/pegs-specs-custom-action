@@ -11,8 +11,8 @@ import { getChangelog, generateChangelogAdoc } from './changelog';
 
 async function run(): Promise<void> {
   try {
-    const requirementsPath = core.getInput('requirements-path');
-    const outputDir = core.getInput('output-dir');
+    const requirementsPath = core.getInput('requirements-path') || 'requirements.csv';
+    const outputDir = core.getInput('output-dir') || 'dist';
     const templatesPath = core.getInput('templates-path');
     const structurePath = core.getInput('structure-path') || 'structure.csv';
 
@@ -40,31 +40,58 @@ async function run(): Promise<void> {
     }
     core.info('Validation passed.');
 
-    core.info(`Generating AsciiDoc files in ${outputDir}...`);
+    core.info(`Generating AsciiDoc content...`);
     const generator = new AdocGenerator(outputDir, templatesPath);
-    // Generate parts based on structure (returns Map<PartTitle, FileName>)
-    const generatedFilesMap = await generator.generate(data, structure);
+    // Generate full content parts string
+    const partsContent = await generator.generate(data, structure);
 
     // Install dependencies
     core.startGroup('Installing Asciidoctor dependencies');
 
-    // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
-    // On GitHub Actions runners (ubuntu-latest), sudo is passwordless.
-    const isLinux = process.platform === 'linux';
-    const sudoPrefix = isLinux ? 'sudo ' : '';
 
-    await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram asciidoctor-diagram-plantuml`);
+    // Install dependencies
+    core.startGroup('Installing Asciidoctor dependencies');
+
+    // Check for existing installation to avoid permissions issues locally
+    let isInstalled = false;
+    try {
+      await exec.exec('asciidoctor-pdf -v', [], { silent: true });
+      isInstalled = true;
+      core.info('Asciidoctor tools already installed via gem.');
+    } catch {
+      core.info('Asciidoctor tools not found.');
+    }
+
+    if (!isInstalled) {
+      // Check platform to decide on sudo usage for basic setup (CI usually runs as runner user)
+      // On GitHub Actions runners (ubuntu-latest), sudo is passwordless.
+      const isLinux = process.platform === 'linux';
+      // On macOS locally, user might need sudo or have valid rbenv. 
+      // We defaults to no-sudo for mac unless CI, but here we just keep existing logic (no sudo on mac)
+      // If it fails EPERM, user should install manually.
+      const sudoPrefix = isLinux ? 'sudo ' : '';
+
+      try {
+        await exec.exec(`${sudoPrefix}gem install asciidoctor asciidoctor-pdf asciidoctor-diagram asciidoctor-diagram-plantuml`);
+      } catch (err: any) {
+        core.warning(`Gem install failed: ${err.message}. Assuming tools might be managed externally or proceed at own risk.`);
+      }
+    }
     // Ensure graphviz and java (JRE) are installed for plantuml
     try {
-      await exec.exec('dot -V');
-      await exec.exec('java -version');
-    } catch {
+      await exec.exec('dot -V', [], { silent: true });
+      await exec.exec('java -version', [], { silent: true });
+    } catch (checkErr) {
       core.info('Graphviz or Java not found. Attempting install...');
-      if (process.platform === 'linux') {
-        await exec.exec('sudo apt-get update');
-        await exec.exec('sudo apt-get install -y graphviz plantuml default-jre');
-      } else if (process.platform === 'darwin') {
-        await exec.exec('brew install graphviz plantuml openjdk');
+      try {
+        if (process.platform === 'linux') {
+          await exec.exec('sudo apt-get update');
+          await exec.exec('sudo apt-get install -y graphviz plantuml default-jre');
+        } else if (process.platform === 'darwin') {
+          await exec.exec('brew install graphviz plantuml openjdk');
+        }
+      } catch (installErr: any) {
+        core.warning(`Dependency install failed: ${installErr.message}. Visualization generation (PlantUML) might fail.`);
       }
     }
     core.endGroup();
@@ -90,11 +117,26 @@ async function run(): Promise<void> {
     // Prefer Structure Order
     const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
 
+    // Generate Changelog First
+    let changelogContent = '';
+    try {
+      core.info('Generating Changelog...');
+      const changelogEntries = await getChangelog();
+      if (changelogEntries.length > 0) {
+        changelogContent = generateChangelogAdoc(changelogEntries);
+        core.info(`Generated Changelog with ${changelogEntries.length} entries.`);
+      } else {
+        core.info('No tags found for Changelog.');
+      }
+    } catch (err) {
+      core.warning(`Failed to generate changelog: ${err}`);
+    }
+
     let masterContent = `= ${projectName}\n`;
     if (authors) masterContent += `${authors}\n`;
     masterContent += `${generationDate}\n`;
     masterContent += ':title-page:\n';
-    masterContent += ':toc: left\n:toclevels: 2\n';
+    masterContent += ':toc: macro\n:toclevels: 2\n'; // Use macro to control placement
 
     if (logoPath) {
       // Use absolute path for logo to ensure asciidoctor-pdf can find it regardless of CWD
@@ -107,42 +149,17 @@ async function run(): Promise<void> {
     }
     masterContent += '\n\n<<<\n\n';
 
-    // List of parts to include in the order they will appear
-    const finalPartSequence: { type: string, file: string, title: string }[] = [];
-
-    // Iterate structure to define order
-    for (const partNode of structure.parts) {
-      const fileName = generatedFilesMap.get(partNode.title);
-      if (fileName) {
-        finalPartSequence.push({ type: partNode.title, file: fileName, title: partNode.title });
-      }
+    // Insert Changelog before TOC
+    if (changelogContent) {
+      masterContent += changelogContent;
+      masterContent += '\n\n<<<\n\n';
     }
 
-    // Append Changelog
-    try {
-      core.info('Generating Changelog...');
-      const changelogEntries = await getChangelog();
-      if (changelogEntries.length > 0) {
-        const changelogContent = generateChangelogAdoc(changelogEntries);
-        const changelogFile = 'changelog.adoc';
-        await fs.promises.writeFile(path.join(outputDir, changelogFile), changelogContent);
-        finalPartSequence.push({ type: 'Changelog', file: changelogFile, title: 'Changelog' });
-        core.info(`Added Changelog with ${changelogEntries.length} entries.`);
-      } else {
-        core.info('No tags found for Changelog.');
-      }
-    } catch (err) {
-      core.warning(`Failed to generate changelog: ${err}`);
-    }
+    // Insert TOC
+    masterContent += 'toc::[]\n\n<<<\n\n';
 
-
-    core.info(`Ordered parts for generation: ${finalPartSequence.map(b => b.title).join(', ')}`);
-
-    for (const part of finalPartSequence) {
-      // For PDF, we include them
-      // We typically need to adjust level offset so they become chapters of the master doc
-      masterContent += `<<<\ninclude::${part.file}[leveloffset=+1]\n\n`;
-    }
+    // Append Parts Content
+    masterContent += partsContent;
 
     // Write master adoc
     await fs.promises.writeFile(masterAdocPath, masterContent);
@@ -152,7 +169,12 @@ async function run(): Promise<void> {
 
     let pdfCommand = `asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read`;
     if (pdfThemePath) {
-      pdfCommand += ` -a pdf-theme=${pdfThemePath}`;
+      const absoluteThemePath = path.isAbsolute(pdfThemePath) ? pdfThemePath : path.resolve(process.cwd(), pdfThemePath);
+      if (fs.existsSync(absoluteThemePath)) {
+        pdfCommand += ` -a pdf-theme=${absoluteThemePath}`;
+      } else {
+        core.warning(`Theme file not found at ${absoluteThemePath}. Using default theme.`);
+      }
     }
     if (pdfFontsDir) {
       pdfCommand += ` -a pdf-fontsdir=${pdfFontsDir}`;

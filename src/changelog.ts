@@ -52,7 +52,7 @@ export function generateChangelogAdoc(entries: ChangelogEntry[]): string {
         return '';
     }
 
-    let content = '== Changelog\n\n';
+    let content = '[discrete]\n== Changelog\n\n';
     content += '[cols="1,1,3", options="header"]\n';
     content += '|===\n';
     content += '| Version | Date | Description\n';
