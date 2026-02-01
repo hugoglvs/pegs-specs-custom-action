@@ -133,16 +133,11 @@ export class AdocGenerator {
                 content += this.handleAttachedFiles(req.attachedFiles, req.id);
             }
 
-            if (req.priority || req.referenceTo) {
+            if (req.referenceTo) {
                 content += `[cols="1,4", options="noheader", frame="none", grid="none"]\n|===\n`;
-                if (req.priority) {
-                    content += `|*Priority*: | [.priority]#${req.priority}#\n`;
-                }
-                if (req.referenceTo) {
-                    const refs = req.referenceTo.split(',').map(r => r.trim());
-                    const links = refs.map(r => `<<${r}>>`).join(', ');
-                    content += `|*References*: | ${links}\n`;
-                }
+                const refs = req.referenceTo.split(',').map(r => r.trim());
+                const links = refs.map(r => `<<${r}>>`).join(', ');
+                content += `|*References*: | ${links}\n`;
                 content += `|===\n\n`;
             }
 
