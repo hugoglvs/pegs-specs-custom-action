@@ -56,10 +56,19 @@ function loadStructure(filePath) {
     const nodeMap = new Map();
     // First pass: Create all nodes
     for (const record of records) {
-        // Validate type
-        const type = record.type;
-        if (type !== 'Part' && type !== 'Section') {
-            console.warn(`Warning: Unknown type '${record.type}' for ID ${record.id}. Defaulting to Section if it has dots, Part otherwise.`);
+        // Robust type handling
+        let rawType = (record.type || '').trim().toLowerCase();
+        let type;
+        if (rawType === 'part') {
+            type = 'Part';
+        }
+        else if (rawType === 'section') {
+            type = 'Section';
+        }
+        else {
+            // Defaulting logic: Section if it has dots, Part otherwise
+            type = record.id.includes('.') ? 'Section' : 'Part';
+            console.warn(`Warning: Unknown type '${record.type}' for ID ${record.id}. Defaulting to ${type}.`);
         }
         const node = {
             id: record.id,
@@ -71,24 +80,31 @@ function loadStructure(filePath) {
         };
         nodeMap.set(record.id, node);
     }
-    // Second pass: Build hierarchy based on 'type'
+    // Second pass: Build hierarchy
     for (const node of nodeMap.values()) {
         if (node.type === 'Part') {
             rootNodes.push(node);
         }
         else {
-            // It is a Section, find its parent Part
-            // Currently we still rely on ID pattern to find the parent ID
-            // e.g. G.1 -> parent is G
+            // It is a Section, find its parent
             if (node.id.includes('.')) {
-                const parts = node.id.split('.');
-                const parentId = parts[0];
+                const idSegments = node.id.split('.');
+                // Parent ID is the ID without the last segment
+                const parentId = idSegments.slice(0, -1).join('.');
                 const parent = nodeMap.get(parentId);
                 if (parent) {
                     parent.children.push(node);
                 }
                 else {
-                    console.warn(`Warning: Section ${node.id} has no parent Part ${parentId}`);
+                    // Fallback to the first segment as part if intermediate parent not found
+                    const rootPartId = idSegments[0];
+                    const rootPart = nodeMap.get(rootPartId);
+                    if (rootPart) {
+                        rootPart.children.push(node);
+                    }
+                    else {
+                        console.warn(`Warning: Section ${node.id} has no valid parent in structure`);
+                    }
                 }
             }
             else {

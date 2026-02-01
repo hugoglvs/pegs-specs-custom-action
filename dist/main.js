@@ -135,9 +135,6 @@ async function run() {
         const generationDate = new Date().toISOString().split('T')[0];
         // Build PDF and HTML
         core.startGroup('Building Artifacts');
-        // 1. Generate Master PDF
-        // Prefer Structure Order
-        const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
         // Generate Changelog First
         let changelogContent = '';
         try {
@@ -154,52 +151,64 @@ async function run() {
         catch (err) {
             core.warning(`Failed to generate changelog: ${err}`);
         }
+        // Generate Master PDF Header
         let masterContent = `= ${projectName}\n`;
         if (authors)
             masterContent += `${authors}\n`;
         masterContent += `${generationDate}\n`;
         masterContent += ':title-page:\n';
-        masterContent += ':toc: macro\n:toclevels: 2\n'; // Use macro to control placement
+        masterContent += ':toc: macro\n:toclevels: 2\n';
         if (logoPath) {
-            // Use absolute path for logo to ensure asciidoctor-pdf can find it regardless of CWD
             const absoluteLogoPath = path.isAbsolute(logoPath) ? logoPath : path.resolve(process.cwd(), logoPath);
             if (fs.existsSync(absoluteLogoPath)) {
                 masterContent += `:title-logo-image: image:${absoluteLogoPath}[pdfwidth=50%,align=center]\n`;
             }
-            else {
-                core.warning(`Logo not found at ${absoluteLogoPath}`);
-            }
         }
         masterContent += '\n\n<<<\n\n';
-        // Insert Changelog before TOC
         if (changelogContent) {
             masterContent += changelogContent;
             masterContent += '\n\n<<<\n\n';
         }
-        // Insert TOC
         masterContent += 'toc::[]\n\n<<<\n\n';
-        // Append Parts Content
-        masterContent += partsContent;
-        // Write master adoc
-        await fs.promises.writeFile(masterAdocPath, masterContent);
+        // Index requirements by Section title for individual book generation
+        const reqsBySectionKey = new Map();
+        for (const req of data.requirements) {
+            const key = req.section.toLowerCase().trim();
+            if (!reqsBySectionKey.has(key))
+                reqsBySectionKey.set(key, []);
+            reqsBySectionKey.get(key)?.push(req);
+        }
         const pdfThemePath = core.getInput('pdf-theme-path');
         const pdfFontsDir = core.getInput('pdf-fonts-dir');
-        let pdfCommand = `asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read`;
+        let themeArgs = '';
         if (pdfThemePath) {
             const absoluteThemePath = path.isAbsolute(pdfThemePath) ? pdfThemePath : path.resolve(process.cwd(), pdfThemePath);
-            if (fs.existsSync(absoluteThemePath)) {
-                pdfCommand += ` -a pdf-theme=${absoluteThemePath}`;
-            }
-            else {
-                core.warning(`Theme file not found at ${absoluteThemePath}. Using default theme.`);
-            }
+            if (fs.existsSync(absoluteThemePath))
+                themeArgs += ` -a pdf-theme=${absoluteThemePath}`;
         }
-        if (pdfFontsDir) {
-            pdfCommand += ` -a pdf-fontsdir=${pdfFontsDir}`;
+        if (pdfFontsDir)
+            themeArgs += ` -a pdf-fontsdir=${pdfFontsDir}`;
+        // Generate individual books
+        for (const part of structure.parts) {
+            const partFilename = part.title.toLowerCase().replace(/\s+/g, '-');
+            const partAdocPath = path.join(outputDir, `${partFilename}.adoc`);
+            let partContent = `= ${part.title}\n`;
+            if (authors)
+                partContent += `${authors}\n`;
+            partContent += `${projectName}\n${generationDate}\n`;
+            partContent += ':title-page:\n:toc:\n\n';
+            const content = await generator.generate({ requirements: data.requirements, parts: data.parts }, { parts: [part], partMap: structure.partMap });
+            partContent += content;
+            await fs.promises.writeFile(partAdocPath, partContent);
+            core.info(`Compiling individual book: ${part.title}...`);
+            await exec.exec(`asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read${themeArgs} ${partAdocPath}`);
         }
-        pdfCommand += ` ${masterAdocPath}`;
+        // Append Master Content and compile
+        masterContent += partsContent;
+        const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
+        await fs.promises.writeFile(masterAdocPath, masterContent);
         core.info(`Compiling Master PDF: ${masterAdocPath}...`);
-        await exec.exec(pdfCommand);
+        await exec.exec(`asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read${themeArgs} ${masterAdocPath}`);
         core.endGroup();
         core.info('Done!');
     }

@@ -60,19 +60,33 @@ async function parseRequirements(filePath, structure) {
         // ID format: G.1.1 -> Part: G, Section: G.1
         const idParts = id.split('.');
         if (idParts.length < 2) {
-            core.warning(`Skipping row with invalid ID format (cannot infer Part/Section): ${id}. Expected format X.Y...`);
+            core.warning(`Skipping row with invalid ID format (cannot infer Part/Section): ${id}. Expected format prefix.number...`);
             continue;
         }
+        // Find match in structure
+        let partNode = null;
+        let sectionNode = null;
+        // Start from longest possible prefix for section, and shortest for part
+        // e.g. G.1.2.3 -> check G.1.2, then G.1 (Section)
+        // and check G (Part)
+        // Find Part (usually first segment)
         const partId = idParts[0];
-        const sectionId = `${idParts[0]}.${idParts[1]}`;
-        const partNode = structure.partMap.get(partId);
-        const sectionNode = structure.partMap.get(sectionId); // We store both in partMap (ID -> Node)
+        partNode = structure.partMap.get(partId);
+        // Find best Section (longest matching prefix that exists in structure and is a Section)
+        for (let i = idParts.length - 1; i >= 1; i--) {
+            const potentialSectionId = idParts.slice(0, i).join('.');
+            const node = structure.partMap.get(potentialSectionId);
+            if (node && node.type === 'Section') {
+                sectionNode = node;
+                break;
+            }
+        }
         if (!partNode) {
-            core.warning(`Skipping row: Part ID '${partId}' not found in structure.`);
+            core.warning(`Skipping row ${id}: Part ID '${partId}' not found in structure.`);
             continue;
         }
         if (!sectionNode) {
-            core.warning(`Skipping row: Section ID '${sectionId}' not found in structure.`);
+            core.warning(`Skipping row ${id}: No matching Section found for ID prefix in structure.`);
             continue;
         }
         const req = {

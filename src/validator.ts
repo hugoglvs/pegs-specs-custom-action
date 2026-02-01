@@ -61,9 +61,9 @@ export class RequirementValidator {
     }
 
     private validateIDFormat(req: Requirement, result: ValidationResult) {
-        // Regex: Letter.Num.Num...
-        // e.g. G.1.2 or G.3.1.2.5
-        const idPattern = /^[GEPS]\.\d+(\.\d+)*$/;
+        // Regex: Letter(s).Num.Num...
+        // Allows any prefix of uppercase letters, followed by DOT then digits.
+        const idPattern = /^[A-Z]+\.\d+(\.\d+)*$/;
 
         if (!idPattern.test(req.id)) {
             result.errors.push(`Requirement ${req.id}: ID format invalid. Must be <Letter>.<Section>.<ID> (e.g., G.1.1).`);

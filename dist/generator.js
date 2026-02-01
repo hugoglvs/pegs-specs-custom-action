@@ -7,84 +7,64 @@ class AdocGenerator {
         this.templatesPath = templatesPath;
     }
     async generate(data, structure) {
-        // Ensure output dir exists (still needed for assets copying later in main, but maybe not strictly for this method if we don't write files)
-        // main.ts handles mkdir, but let's keep it safe or rely on main.
-        // We actually don't need outputDir in constructor anymore if we don't write files.
-        // But we might need it for resolving relative paths if we did anything complex. 
-        // For now, let's just generate the string.
-        // We will build the body content.
         let fullContent = '';
-        // Index requirements by Part then Section for easy lookup
-        const reqsByPartKey = new Map();
+        // Index requirements by Section title for easy lookup
+        const reqsBySectionKey = new Map();
         for (const req of data.requirements) {
-            const key = req.part.toLowerCase().trim();
-            if (!reqsByPartKey.has(key))
-                reqsByPartKey.set(key, []);
-            reqsByPartKey.get(key)?.push(req);
+            const key = req.section.toLowerCase().trim();
+            if (!reqsBySectionKey.has(key))
+                reqsBySectionKey.set(key, []);
+            reqsBySectionKey.get(key)?.push(req);
         }
         for (const partNode of structure.parts) {
-            const partContent = await this.generatePartContent(partNode, reqsByPartKey);
+            const partContent = await this.generatePartContent(partNode, reqsBySectionKey);
             fullContent += partContent;
-            // Add a page break between parts?
-            // The master doc usually puts breaks. We can add specific breaks here.
             fullContent += '\n\n<<<\n\n';
         }
         return fullContent;
     }
-    async generatePartContent(partNode, reqsByPartKey) {
-        // Part Title at Level 1 (==) because Master is Level 0 (=)
+    async generatePartContent(partNode, reqsBySectionKey) {
         let content = `== ${partNode.title}\n\n`;
-        // Description removed as per previous fix
-        // Get requirements for this part
-        const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
-        // Group by Section
-        const reqsBySectionKey = new Map();
-        for (const req of partReqs) {
-            const cKey = req.section.toLowerCase().trim();
-            if (!reqsBySectionKey.has(cKey))
-                reqsBySectionKey.set(cKey, []);
-            reqsBySectionKey.get(cKey)?.push(req);
+        for (const childNode of partNode.children) {
+            content += this.renderSectionRecursive(childNode, reqsBySectionKey, 3);
         }
-        for (const sectionNode of partNode.children) {
-            // Section Title at Level 2 (===)
-            content += `=== ${sectionNode.id} ${sectionNode.title}\n\n`;
-            // Description removed as per previous fix
-            const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
-            if (sectionReqs && sectionReqs.length > 0) {
-                content += this.generateSectionContent(sectionReqs) + '\n';
+        return content;
+    }
+    renderSectionRecursive(node, reqsBySectionKey, level) {
+        const headerPrefix = '='.repeat(level);
+        let content = `${headerPrefix} ${node.id} ${node.title}\n\n`;
+        const sectionReqs = reqsBySectionKey.get(node.title.toLowerCase().trim());
+        if (sectionReqs && sectionReqs.length > 0) {
+            content += this.generateSectionContent(sectionReqs) + '\n';
+        }
+        // Render sub-sections
+        if (node.children && node.children.length > 0) {
+            for (const child of node.children) {
+                content += this.renderSectionRecursive(child, reqsBySectionKey, level + 1);
             }
-            else {
-                content += `_No requirements for this section._\n\n`;
-            }
+        }
+        else if (!sectionReqs || sectionReqs.length === 0) {
+            content += `_No requirements for this section._\n\n`;
         }
         return content;
     }
     generateSectionContent(reqs) {
-        // Build hierarchy first
         const roots = this.buildHierarchy(reqs);
-        // Start at level 4 (====) for requirements, since Section is level 2 (===) wait.
-        // Part: ==
-        // Section: ===
-        // Requirement: ====
         return this.renderRequirements(roots, 4);
     }
     buildHierarchy(reqs) {
         const reqMap = new Map();
         const roots = [];
-        // First pass: map all requirements
         reqs.forEach(req => {
-            req.children = []; // Initialize children
+            req.children = [];
             reqMap.set(req.id, req);
         });
-        // Second pass: link parents and children
         reqs.forEach(req => {
             if (req.parent && reqMap.has(req.parent)) {
-                // It has a parent in this list
                 const parent = reqMap.get(req.parent);
                 parent?.children?.push(req);
             }
             else {
-                // It's a root (no parent, or parent not in this section context)
                 roots.push(req);
             }
         });
@@ -94,8 +74,6 @@ class AdocGenerator {
         let content = '';
         const headerPrefix = '='.repeat(level);
         for (const req of reqs) {
-            // Render requirement with styled ID and priority
-            // Roles are defined in the theme file (e.g., pegs-theme.yml)
             let reqLine = `[.req_id]#${req.id}# `;
             if (req.priority) {
                 reqLine += `[.priority]#${req.priority}# `;
@@ -113,14 +91,12 @@ class AdocGenerator {
                 content += `|===\n\n`;
             }
             content += `[#${req.id}]\n`;
-            // Only add separator if it's a top-level requirement relative to the section
             if (level === 4) {
                 content += `---\n\n`;
             }
             else {
                 content += `\n`;
             }
-            // Render children recursively in an indented block
             if (req.children && req.children.length > 0) {
                 content += `\n--\n`;
                 content += this.renderRequirements(req.children, level + 1);

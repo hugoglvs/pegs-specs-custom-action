@@ -25754,84 +25754,64 @@ class AdocGenerator {
         this.templatesPath = templatesPath;
     }
     async generate(data, structure) {
-        // Ensure output dir exists (still needed for assets copying later in main, but maybe not strictly for this method if we don't write files)
-        // main.ts handles mkdir, but let's keep it safe or rely on main.
-        // We actually don't need outputDir in constructor anymore if we don't write files.
-        // But we might need it for resolving relative paths if we did anything complex. 
-        // For now, let's just generate the string.
-        // We will build the body content.
         let fullContent = '';
-        // Index requirements by Part then Section for easy lookup
-        const reqsByPartKey = new Map();
+        // Index requirements by Section title for easy lookup
+        const reqsBySectionKey = new Map();
         for (const req of data.requirements) {
-            const key = req.part.toLowerCase().trim();
-            if (!reqsByPartKey.has(key))
-                reqsByPartKey.set(key, []);
-            reqsByPartKey.get(key)?.push(req);
+            const key = req.section.toLowerCase().trim();
+            if (!reqsBySectionKey.has(key))
+                reqsBySectionKey.set(key, []);
+            reqsBySectionKey.get(key)?.push(req);
         }
         for (const partNode of structure.parts) {
-            const partContent = await this.generatePartContent(partNode, reqsByPartKey);
+            const partContent = await this.generatePartContent(partNode, reqsBySectionKey);
             fullContent += partContent;
-            // Add a page break between parts?
-            // The master doc usually puts breaks. We can add specific breaks here.
             fullContent += '\n\n<<<\n\n';
         }
         return fullContent;
     }
-    async generatePartContent(partNode, reqsByPartKey) {
-        // Part Title at Level 1 (==) because Master is Level 0 (=)
+    async generatePartContent(partNode, reqsBySectionKey) {
         let content = `== ${partNode.title}\n\n`;
-        // Description removed as per previous fix
-        // Get requirements for this part
-        const partReqs = reqsByPartKey.get(partNode.title.toLowerCase().trim()) || [];
-        // Group by Section
-        const reqsBySectionKey = new Map();
-        for (const req of partReqs) {
-            const cKey = req.section.toLowerCase().trim();
-            if (!reqsBySectionKey.has(cKey))
-                reqsBySectionKey.set(cKey, []);
-            reqsBySectionKey.get(cKey)?.push(req);
+        for (const childNode of partNode.children) {
+            content += this.renderSectionRecursive(childNode, reqsBySectionKey, 3);
         }
-        for (const sectionNode of partNode.children) {
-            // Section Title at Level 2 (===)
-            content += `=== ${sectionNode.id} ${sectionNode.title}\n\n`;
-            // Description removed as per previous fix
-            const sectionReqs = reqsBySectionKey.get(sectionNode.title.toLowerCase().trim());
-            if (sectionReqs && sectionReqs.length > 0) {
-                content += this.generateSectionContent(sectionReqs) + '\n';
+        return content;
+    }
+    renderSectionRecursive(node, reqsBySectionKey, level) {
+        const headerPrefix = '='.repeat(level);
+        let content = `${headerPrefix} ${node.id} ${node.title}\n\n`;
+        const sectionReqs = reqsBySectionKey.get(node.title.toLowerCase().trim());
+        if (sectionReqs && sectionReqs.length > 0) {
+            content += this.generateSectionContent(sectionReqs) + '\n';
+        }
+        // Render sub-sections
+        if (node.children && node.children.length > 0) {
+            for (const child of node.children) {
+                content += this.renderSectionRecursive(child, reqsBySectionKey, level + 1);
             }
-            else {
-                content += `_No requirements for this section._\n\n`;
-            }
+        }
+        else if (!sectionReqs || sectionReqs.length === 0) {
+            content += `_No requirements for this section._\n\n`;
         }
         return content;
     }
     generateSectionContent(reqs) {
-        // Build hierarchy first
         const roots = this.buildHierarchy(reqs);
-        // Start at level 4 (====) for requirements, since Section is level 2 (===) wait.
-        // Part: ==
-        // Section: ===
-        // Requirement: ====
         return this.renderRequirements(roots, 4);
     }
     buildHierarchy(reqs) {
         const reqMap = new Map();
         const roots = [];
-        // First pass: map all requirements
         reqs.forEach(req => {
-            req.children = []; // Initialize children
+            req.children = [];
             reqMap.set(req.id, req);
         });
-        // Second pass: link parents and children
         reqs.forEach(req => {
             if (req.parent && reqMap.has(req.parent)) {
-                // It has a parent in this list
                 const parent = reqMap.get(req.parent);
                 parent?.children?.push(req);
             }
             else {
-                // It's a root (no parent, or parent not in this section context)
                 roots.push(req);
             }
         });
@@ -25841,8 +25821,6 @@ class AdocGenerator {
         let content = '';
         const headerPrefix = '='.repeat(level);
         for (const req of reqs) {
-            // Render requirement with styled ID and priority
-            // Roles are defined in the theme file (e.g., pegs-theme.yml)
             let reqLine = `[.req_id]#${req.id}# `;
             if (req.priority) {
                 reqLine += `[.priority]#${req.priority}# `;
@@ -25860,14 +25838,12 @@ class AdocGenerator {
                 content += `|===\n\n`;
             }
             content += `[#${req.id}]\n`;
-            // Only add separator if it's a top-level requirement relative to the section
             if (level === 4) {
                 content += `---\n\n`;
             }
             else {
                 content += `\n`;
             }
-            // Render children recursively in an indented block
             if (req.children && req.children.length > 0) {
                 content += `\n--\n`;
                 content += this.renderRequirements(req.children, level + 1);
@@ -26043,9 +26019,6 @@ async function run() {
         const generationDate = new Date().toISOString().split('T')[0];
         // Build PDF and HTML
         core.startGroup('Building Artifacts');
-        // 1. Generate Master PDF
-        // Prefer Structure Order
-        const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
         // Generate Changelog First
         let changelogContent = '';
         try {
@@ -26062,52 +26035,64 @@ async function run() {
         catch (err) {
             core.warning(`Failed to generate changelog: ${err}`);
         }
+        // Generate Master PDF Header
         let masterContent = `= ${projectName}\n`;
         if (authors)
             masterContent += `${authors}\n`;
         masterContent += `${generationDate}\n`;
         masterContent += ':title-page:\n';
-        masterContent += ':toc: macro\n:toclevels: 2\n'; // Use macro to control placement
+        masterContent += ':toc: macro\n:toclevels: 2\n';
         if (logoPath) {
-            // Use absolute path for logo to ensure asciidoctor-pdf can find it regardless of CWD
             const absoluteLogoPath = path.isAbsolute(logoPath) ? logoPath : path.resolve(process.cwd(), logoPath);
             if (fs.existsSync(absoluteLogoPath)) {
                 masterContent += `:title-logo-image: image:${absoluteLogoPath}[pdfwidth=50%,align=center]\n`;
             }
-            else {
-                core.warning(`Logo not found at ${absoluteLogoPath}`);
-            }
         }
         masterContent += '\n\n<<<\n\n';
-        // Insert Changelog before TOC
         if (changelogContent) {
             masterContent += changelogContent;
             masterContent += '\n\n<<<\n\n';
         }
-        // Insert TOC
         masterContent += 'toc::[]\n\n<<<\n\n';
-        // Append Parts Content
-        masterContent += partsContent;
-        // Write master adoc
-        await fs.promises.writeFile(masterAdocPath, masterContent);
+        // Index requirements by Section title for individual book generation
+        const reqsBySectionKey = new Map();
+        for (const req of data.requirements) {
+            const key = req.section.toLowerCase().trim();
+            if (!reqsBySectionKey.has(key))
+                reqsBySectionKey.set(key, []);
+            reqsBySectionKey.get(key)?.push(req);
+        }
         const pdfThemePath = core.getInput('pdf-theme-path');
         const pdfFontsDir = core.getInput('pdf-fonts-dir');
-        let pdfCommand = `asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read`;
+        let themeArgs = '';
         if (pdfThemePath) {
             const absoluteThemePath = path.isAbsolute(pdfThemePath) ? pdfThemePath : path.resolve(process.cwd(), pdfThemePath);
-            if (fs.existsSync(absoluteThemePath)) {
-                pdfCommand += ` -a pdf-theme=${absoluteThemePath}`;
-            }
-            else {
-                core.warning(`Theme file not found at ${absoluteThemePath}. Using default theme.`);
-            }
+            if (fs.existsSync(absoluteThemePath))
+                themeArgs += ` -a pdf-theme=${absoluteThemePath}`;
         }
-        if (pdfFontsDir) {
-            pdfCommand += ` -a pdf-fontsdir=${pdfFontsDir}`;
+        if (pdfFontsDir)
+            themeArgs += ` -a pdf-fontsdir=${pdfFontsDir}`;
+        // Generate individual books
+        for (const part of structure.parts) {
+            const partFilename = part.title.toLowerCase().replace(/\s+/g, '-');
+            const partAdocPath = path.join(outputDir, `${partFilename}.adoc`);
+            let partContent = `= ${part.title}\n`;
+            if (authors)
+                partContent += `${authors}\n`;
+            partContent += `${projectName}\n${generationDate}\n`;
+            partContent += ':title-page:\n:toc:\n\n';
+            const content = await generator.generate({ requirements: data.requirements, parts: data.parts }, { parts: [part], partMap: structure.partMap });
+            partContent += content;
+            await fs.promises.writeFile(partAdocPath, partContent);
+            core.info(`Compiling individual book: ${part.title}...`);
+            await exec.exec(`asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read${themeArgs} ${partAdocPath}`);
         }
-        pdfCommand += ` ${masterAdocPath}`;
+        // Append Master Content and compile
+        masterContent += partsContent;
+        const masterAdocPath = path.join(outputDir, 'full-specs.adoc');
+        await fs.promises.writeFile(masterAdocPath, masterContent);
         core.info(`Compiling Master PDF: ${masterAdocPath}...`);
-        await exec.exec(pdfCommand);
+        await exec.exec(`asciidoctor-pdf -r asciidoctor-diagram -a allow-uri-read${themeArgs} ${masterAdocPath}`);
         core.endGroup();
         core.info('Done!');
     }
@@ -26187,19 +26172,33 @@ async function parseRequirements(filePath, structure) {
         // ID format: G.1.1 -> Part: G, Section: G.1
         const idParts = id.split('.');
         if (idParts.length < 2) {
-            core.warning(`Skipping row with invalid ID format (cannot infer Part/Section): ${id}. Expected format X.Y...`);
+            core.warning(`Skipping row with invalid ID format (cannot infer Part/Section): ${id}. Expected format prefix.number...`);
             continue;
         }
+        // Find match in structure
+        let partNode = null;
+        let sectionNode = null;
+        // Start from longest possible prefix for section, and shortest for part
+        // e.g. G.1.2.3 -> check G.1.2, then G.1 (Section)
+        // and check G (Part)
+        // Find Part (usually first segment)
         const partId = idParts[0];
-        const sectionId = `${idParts[0]}.${idParts[1]}`;
-        const partNode = structure.partMap.get(partId);
-        const sectionNode = structure.partMap.get(sectionId); // We store both in partMap (ID -> Node)
+        partNode = structure.partMap.get(partId);
+        // Find best Section (longest matching prefix that exists in structure and is a Section)
+        for (let i = idParts.length - 1; i >= 1; i--) {
+            const potentialSectionId = idParts.slice(0, i).join('.');
+            const node = structure.partMap.get(potentialSectionId);
+            if (node && node.type === 'Section') {
+                sectionNode = node;
+                break;
+            }
+        }
         if (!partNode) {
-            core.warning(`Skipping row: Part ID '${partId}' not found in structure.`);
+            core.warning(`Skipping row ${id}: Part ID '${partId}' not found in structure.`);
             continue;
         }
         if (!sectionNode) {
-            core.warning(`Skipping row: Section ID '${sectionId}' not found in structure.`);
+            core.warning(`Skipping row ${id}: No matching Section found for ID prefix in structure.`);
             continue;
         }
         const req = {
@@ -26283,10 +26282,19 @@ function loadStructure(filePath) {
     const nodeMap = new Map();
     // First pass: Create all nodes
     for (const record of records) {
-        // Validate type
-        const type = record.type;
-        if (type !== 'Part' && type !== 'Section') {
-            console.warn(`Warning: Unknown type '${record.type}' for ID ${record.id}. Defaulting to Section if it has dots, Part otherwise.`);
+        // Robust type handling
+        let rawType = (record.type || '').trim().toLowerCase();
+        let type;
+        if (rawType === 'part') {
+            type = 'Part';
+        }
+        else if (rawType === 'section') {
+            type = 'Section';
+        }
+        else {
+            // Defaulting logic: Section if it has dots, Part otherwise
+            type = record.id.includes('.') ? 'Section' : 'Part';
+            console.warn(`Warning: Unknown type '${record.type}' for ID ${record.id}. Defaulting to ${type}.`);
         }
         const node = {
             id: record.id,
@@ -26298,24 +26306,31 @@ function loadStructure(filePath) {
         };
         nodeMap.set(record.id, node);
     }
-    // Second pass: Build hierarchy based on 'type'
+    // Second pass: Build hierarchy
     for (const node of nodeMap.values()) {
         if (node.type === 'Part') {
             rootNodes.push(node);
         }
         else {
-            // It is a Section, find its parent Part
-            // Currently we still rely on ID pattern to find the parent ID
-            // e.g. G.1 -> parent is G
+            // It is a Section, find its parent
             if (node.id.includes('.')) {
-                const parts = node.id.split('.');
-                const parentId = parts[0];
+                const idSegments = node.id.split('.');
+                // Parent ID is the ID without the last segment
+                const parentId = idSegments.slice(0, -1).join('.');
                 const parent = nodeMap.get(parentId);
                 if (parent) {
                     parent.children.push(node);
                 }
                 else {
-                    console.warn(`Warning: Section ${node.id} has no parent Part ${parentId}`);
+                    // Fallback to the first segment as part if intermediate parent not found
+                    const rootPartId = idSegments[0];
+                    const rootPart = nodeMap.get(rootPartId);
+                    if (rootPart) {
+                        rootPart.children.push(node);
+                    }
+                    else {
+                        console.warn(`Warning: Section ${node.id} has no valid parent in structure`);
+                    }
                 }
             }
             else {
@@ -26409,9 +26424,9 @@ class RequirementValidator {
         }
     }
     validateIDFormat(req, result) {
-        // Regex: Letter.Num.Num...
-        // e.g. G.1.2 or G.3.1.2.5
-        const idPattern = /^[GEPS]\.\d+(\.\d+)*$/;
+        // Regex: Letter(s).Num.Num...
+        // Allows any prefix of uppercase letters, followed by DOT then digits.
+        const idPattern = /^[A-Z]+\.\d+(\.\d+)*$/;
         if (!idPattern.test(req.id)) {
             result.errors.push(`Requirement ${req.id}: ID format invalid. Must be <Letter>.<Section>.<ID> (e.g., G.1.1).`);
             result.isValid = false;
